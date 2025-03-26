@@ -9,17 +9,21 @@
 
 {
     "name": "IGIC (Impuesto General Indirecto Canario)",
-    "version": "17.0.2.1.2",
+    "version": "17.0.2.2.0",
     "countries": ["es"],
     "author": "David Diz Martínez,"
     "Atlantux Consultores - Enrique Zanardi,"
     "Sistemas de Datos,"
     "Comunitea,"
     "Moisés Fargnoli,"
+    "Binhex,"
     "Odoo Community Association (OCA)",
     "category": "Accounting/Localizations/Account Charts",
     "website": "https://github.com/OCA/l10n-spain",
     "depends": ["l10n_es"],
+    "data": [
+        "data/products_dua.xml",
+    ],
     "license": "AGPL-3",
     "installable": True,
     "auto_install": False,

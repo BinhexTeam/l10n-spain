@@ -29,7 +29,9 @@ IGIC (Impuesto General Indirecto Canario)
 |badge1| |badge2| |badge3| |badge4| |badge5|
 
 Módulo que amplía la contabilidad española introduciendo los impuestos y
-posiciones fiscales para el IGIC.
+posiciones fiscales para el IGIC. Para más información sobre las
+importaciones con DUA acceder al siguiente enlace
+`README <https://github.com/OCA/l10n-spain/blob/16.0/l10n_es_dua_igic/README.rst>`__
 
 **Table of contents**
 
@@ -63,6 +65,7 @@ Authors
 * Sistemas de Datos
 * Comunitea
 * Moisés Fargnoli
+* Binhex
 
 Contributors
 ------------
@@ -70,6 +73,8 @@ Contributors
 - Rodrigo Colombo <rodrigo.covl@gmail.com> <rcolombo@sdatos.es>
 - Hector Ravelo <alu0100603170@ull.edu.es>
 - Omar Castiñeira Saavedra <omar@comunitea.com>
+- Julian Ramos <info@infinityloop.es>
+- Christian Ramos <c.ramos@binhex.cloud>
 
 Maintainers
 -----------
