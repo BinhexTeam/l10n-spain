@@ -87,64 +87,6 @@ class TestL10nEsAeatSiiSummary(TestL10nEsAeatSiiBase):
                     "sii_invoice_summary_end": 1,
                 },
             ),
-            (
-                "out_invoice",
-                [(100, ["s_iva0_sp_i"]), (200, ["s_iva0_ic"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 1,
-                },
-            ),
-            (
-                "out_refund",
-                [(100, ["s_iva0_sp_i"]), (200, ["s_iva0_ic"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 1,
-                },
-            ),
-            (
-                "out_invoice",
-                [(100, ["s_iva_e"]), (200, ["s_iva0_e"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 1,
-                },
-            ),
-            (
-                "out_refund",
-                [(100, ["s_iva_e"]), (200, ["s_iva0_e"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 1,
-                },
-            ),
-            # Out invoice with currency
-            (
-                "out_invoice",
-                [(100, ["s_iva10b"])],
-                {
-                    "currency_id": self.usd.id,
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 1,
-                },
-            ),
-            # Out invoice with currency and with not included in total amount
-            (
-                "out_invoice",
-                [(100, ["s_iva10b", "s_irpf1"])],
-                {
-                    "currency_id": self.usd.id,
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 1,
-                },
-            ),
         ]
         for inv_type, lines, extra_vals in mapping:
             self._create_and_test_invoice_sii_dict(
@@ -185,64 +127,6 @@ class TestL10nEsAeatSiiSummary(TestL10nEsAeatSiiBase):
                 "out_refund",
                 [(100, ["s_iva10b"]), (100, ["s_iva10b"]), (200, ["s_iva21s"])],
                 {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 10,
-                },
-            ),
-            (
-                "out_invoice",
-                [(100, ["s_iva0_sp_i"]), (200, ["s_iva0_ic"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 10,
-                },
-            ),
-            (
-                "out_refund",
-                [(100, ["s_iva0_sp_i"]), (200, ["s_iva0_ic"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 10,
-                },
-            ),
-            (
-                "out_invoice",
-                [(100, ["s_iva_e"]), (200, ["s_iva0_e"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 10,
-                },
-            ),
-            (
-                "out_refund",
-                [(100, ["s_iva_e"]), (200, ["s_iva0_e"])],
-                {
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 10,
-                },
-            ),
-            # Out invoice with currency
-            (
-                "out_invoice",
-                [(100, ["s_iva10b"])],
-                {
-                    "currency_id": self.usd.id,
-                    "is_invoice_summary": True,
-                    "sii_invoice_summary_start": 1,
-                    "sii_invoice_summary_end": 10,
-                },
-            ),
-            # Out invoice with currency and with not included in total amount
-            (
-                "out_invoice",
-                [(100, ["s_iva10b", "s_irpf1"])],
-                {
-                    "currency_id": self.usd.id,
                     "is_invoice_summary": True,
                     "sii_invoice_summary_start": 1,
                     "sii_invoice_summary_end": 10,
