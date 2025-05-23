@@ -29,6 +29,13 @@ class ResPartner(models.Model):
             or not self.comercial
         ):
             return origin
+        if self.env.context.get("show_address"):
+            return origin.replace(
+                self.name or "",
+                name_pattern
+                % {"name": self.name or "", "comercial_name": self.comercial},
+                1,  # Just replace the first occurrence
+            )
         return name_pattern % {"name": origin, "comercial_name": self.comercial}
 
     @api.model
@@ -37,6 +44,7 @@ class ResPartner(models.Model):
         res += ["comercial"]
         return res
 
-    def _auto_init(self):
-        self.env["res.partner"]._rec_names_search.append("comercial")
-        return super()._auto_init()
+    @property
+    def _rec_names_search(self):
+        # Inject the field comercial in _rec_names_search
+        return list(set(super()._rec_names_search + ["comercial"]))
