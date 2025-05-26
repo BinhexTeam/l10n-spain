@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <!-- Mapa general para Verifactu Canarias -->
+    <record id="aeat_verifactu_map_igic" model="aeat.verifactu.map">
+        <field name="name">Verifactu IGIC Canarias</field>
+    </record>
+
+    <!-- Operación Sujeta y No exenta - Sin inversión del sujeto pasivo -->
+    <record id="aeat_verifactu_map_line_S1_igic" model="aeat.verifactu.map.lines">
+        <field name="code">S1</field>
+        <field
+            name="taxes"
+            eval="[(6, 0, [
+            ref('l10n_es_igic.account_tax_template_igic_r_0'),
+            ref('l10n_es_igic.account_tax_template_igic_r_3'),
+            ref('l10n_es_igic.account_tax_template_igic_r_5'),
+            ref('l10n_es_igic.account_tax_template_igic_r_7'),
+            ref('l10n_es_igic.account_tax_template_igic_r_9_5'),
+            ref('l10n_es_igic.account_tax_template_igic_r_15'),
+            ref('l10n_es_igic.account_tax_template_igic_r_20'),
+        ])]"
+        />
+        <field name="verifactu_map_id" ref="aeat_verifactu_map_igic" />
+        <field
+            name="name"
+        >Operación Sujeta y No exenta - Sin inversión del sujeto pasivo (IGIC)</field>
+    </record>
+
+    <!-- Operación Sujeta y No exenta - Con inversión del sujeto pasivo -->
+    <record id="aeat_verifactu_map_line_S2_igic" model="aeat.verifactu.map.lines">
+        <field name="code">S2</field>
+        <field
+            name="taxes"
+            eval="[(6, 0, [
+            ref('l10n_es_igic.account_tax_template_igic_s_ISP0'),
+        ])]"
+        />
+        <field name="verifactu_map_id" ref="aeat_verifactu_map_igic" />
+        <field
+            name="name"
+        >Operación Sujeta y No exenta - Con inversión del sujeto pasivo (IGIC)</field>
+    </record>
+
+    <!-- Operación exenta -->
+    <record id="aeat_verifactu_map_line_E1_igic" model="aeat.verifactu.map.lines">
+        <field name="code">E1</field>
+        <field
+            name="taxes"
+            eval="[(6, 0, [
+            ref('l10n_es_igic.account_tax_template_igic_re_ex'),
+            ref('l10n_es_igic.account_tax_template_igic_ex_0'),
+        ])]"
+        />
+        <field name="verifactu_map_id" ref="aeat_verifactu_map_igic" />
+        <field name="name">Operaciones Exentas (IGIC)</field>
+    </record>
+
+    <!-- Operación No Sujeta artículo 7, 14, otros -->
+    <record id="aeat_verifactu_map_line_N1_igic" model="aeat.verifactu.map.lines">
+        <field name="code">N1</field>
+        <field name="taxes" eval="[(6, 0, [])]" />
+        <field name="verifactu_map_id" ref="aeat_verifactu_map_igic" />
+        <field name="name">Operación No Sujeta artículo 7, 14, otros (IGIC)</field>
+    </record>
+
+    <!-- Operación No Sujeta por reglas de localización -->
+    <record id="aeat_verifactu_map_line_N2_igic" model="aeat.verifactu.map.lines">
+        <field name="code">N2</field>
+        <field name="taxes" eval="[(6, 0, [])]" />
+        <field name="verifactu_map_id" ref="aeat_verifactu_map_igic" />
+        <field name="name">Operación No Sujeta por reglas de localización (IGIC)</field>
+    </record>
+
+    <!-- Recargo Equivalencia (generalmente no aplica en ventas Canarias) -->
+    <record id="aeat_verifactu_map_line_RE_igic" model="aeat.verifactu.map.lines">
+        <field name="code">RE</field>
+        <field name="taxes" eval="[(6, 0, [])]" />
+        <field name="verifactu_map_id" ref="aeat_verifactu_map_igic" />
+        <field name="name">Recargo Equivalencia (IGIC)</field>
+    </record>
+
+</odoo>

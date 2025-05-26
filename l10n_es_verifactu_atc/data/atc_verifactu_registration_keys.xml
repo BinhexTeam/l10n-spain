@@ -1,0 +1,148 @@
+<odoo>
+    <record
+        id="aeat_verifactu_registration_keys_igic_01"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">01</field>
+        <field name="name">Operación de régimen general</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_02"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">02</field>
+        <field name="name">Exportación</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_03"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">03</field>
+        <field
+            name="name"
+        >Régimen especial de bienes usados, objetos de arte, antigüedades y objetos de colección</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_04"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">04</field>
+        <field name="name">Régimen especial oro de inversión</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_05"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">05</field>
+        <field name="name">Régimen especial agencias de viajes</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_07"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">07</field>
+        <field name="name">Régimen especial criterio de caja</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_08"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">08</field>
+        <field name="name">Operaciones sujetas al IPSI / IVA</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_09"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">09</field>
+        <field
+            name="name"
+        >Servicios de agencias de viaje (mediadoras en nombre ajeno)</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_10"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">10</field>
+        <field
+            name="name"
+        >Cobros por cuenta de terceros de honorarios profesionales o derechos</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_11"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">11</field>
+        <field name="name">Arrendamiento de local de negocio</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_14"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">14</field>
+        <field
+            name="name"
+        >IGIC pendiente de devengo en certificaciones de obra (AA.PP.)</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_15"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">15</field>
+        <field
+            name="name"
+        >IGIC pendiente de devengo en operaciones de tracto sucesivo</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_17"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">17</field>
+        <field name="name">Régimen especial de comerciante minorista</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_18"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">18</field>
+        <field name="name">Régimen especial del pequeño empresario o profesional</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+
+    <record
+        id="aeat_verifactu_registration_keys_igic_19"
+        model="aeat.verifactu.registration.keys"
+    >
+        <field name="code">19</field>
+        <field
+            name="name"
+        >Operaciones interiores exentas por artículo 25 Ley 19/1994</field>
+        <field name="verifactu_tax_key">03</field>
+    </record>
+</odoo>
