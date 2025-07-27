@@ -257,7 +257,3 @@
 ,,,,,,,,,,,"tax","invoice","account_common_canary_4727",,
 ,,,,,,,,,,,"base","refund",,,
 ,,,,,,,,,,,"tax","refund","account_common_canary_4727",,
-"account_tax_template_p_atc_dua0","1","purchase","DUA ATC Exempt","DUA ATC Exento","DUA ATC EX","DUA ATC EX","0","percent","tax_group_atc_dua_exento",,"base","invoice",,,
-,,,,,,,,,,,"tax","invoice",,,
-,,,,,,,,,,,"base","refund",,,
-,,,,,,,,,,,"tax","refund",,,
