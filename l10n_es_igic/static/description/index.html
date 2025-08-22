@@ -375,7 +375,7 @@ posiciones fiscales para el IGIC.</p>
 <p>Sobreescribe posición fiscal <tt class="docutils literal">DUA</tt> heredada de módulo <tt class="docutils literal">l10n_es</tt>
 agregando los impuestos requeridos para igic:</p>
 <ul class="simple">
-<li>Posicion fiscal: Importación con DUA ATC</li>
+<li>Posicion fiscal: Importación con DUA</li>
 </ul>
 <p>Esta posición fiscal añade los impuestos de compras por el impuesto “DUA
 Exento” para que las líneas de la factura de proveedor no generen
@@ -420,24 +420,24 @@ para sus servicios con la fiscalidad nacional.</li>
 </li>
 </ol>
 <p>Al validar ambas facturas nos crea los siguientes asientos:</p>
-<ol class="arabic simple">
-<li>Asiento factura proveedor extranjero ================== ====== ======
-======== ================ CUENTA DEBE HABER IMPUESTO IMPORTE IMPUESTO
-================== ====== ====== ======== ================ 400000
-Proveedores 0.00 100.00 600000 Compras 100.00 0.00 ==================
-====== ====== ======== ================</li>
-<li>Asiento factura empresa de tránsito
-+———————–+——–+——–+————————-+——————+
-| CUENTA | DEBE | HABER | IMPUESTO | IMPORTE IMPUESTO |
-+=======================+========+========+=========================+==================+
-| 410000 Acreedores | 0.00 | 160.50 | | |
-+———————–+——–+——–+————————-+——————+
-| 472700 IGIC Soportado | 10.50 | 0.00 | IGIC 7% G Importaciones
-| 10.50 |
-+———————–+——–+——–+————————-+——————+
-| 600000 Compras | 150.00 | 0.00 | DUA Valoración IGIC 7% |
-150.00 |
-+———————–+——–+——–+————————-+——————+</li>
+<ol class="arabic">
+<li><p class="first">Asiento factura proveedor extranjero</p>
+<pre class="literal-block">
+| CUENTA             | DEBE   | HABER  | IMPUESTO | IMPORTE IMPUESTO |
+|--------------------|--------|--------|----------|------------------|
+| 400000 Proveedores | 0.00   | 100.00 |          |                  |
+| 600000 Compras     | 100.00 | 0.00   |          |                  |
+</pre>
+</li>
+<li><p class="first">Asiento factura empresa de tránsito</p>
+<pre class="literal-block">
+| CUENTA                | DEBE   | HABER  | IMPUESTO                | IMPORTE IMPUESTO |
+|-----------------------|--------|--------|-------------------------|------------------|
+| 410000 Acreedores     | 0.00   | 160.50 |                         |                  |
+| 472700 IGIC Soportado | 10.50  | 0.00   | IGIC 7% G Importaciones | 10.50            |
+| 600000 Compras        | 150.00 | 0.00   | DUA Valoración IGIC 7%  | 150.00           |
+</pre>
+</li>
 </ol>
 <p><strong>Table of contents</strong></p>
 <div class="contents local topic" id="contents">
