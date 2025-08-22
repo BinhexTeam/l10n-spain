@@ -3,3 +3,4 @@
 - Omar Castiñeira Saavedra \<<omar@comunitea.com>\>
 - Julian Ramos \<<info@infinityloop.es>\>
 - Christian Ramos \<<c.ramos@binhex.cloud>\>
+- Abraham J. Febres \<<a.febres@binhex.cloud>\>

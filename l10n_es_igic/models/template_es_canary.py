@@ -51,7 +51,15 @@ class AccountChartTemplate(models.AbstractModel):
 
     @template("es_common", "account.fiscal.position")
     def _get_es_common_force_account_fiscal_position(self):
-        return self._parse_csv("es_common", "account.fiscal.position", module="l10n_es")
+        es_common_account_fiscal_position = self._parse_csv(
+            "es_common", "account.fiscal.position", module="l10n_es"
+        )
+        es_common_account_fiscal_position.update(
+            self._parse_csv(
+                "es_common", "account.fiscal.position", module="l10n_es_igic"
+            )
+        )
+        return es_common_account_fiscal_position
 
     @template("es_full_canary")
     def _get_es_full_canary_template_data(self):
