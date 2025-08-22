@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-22 12:55+0000\n"
-"PO-Revision-Date: 2025-08-22 12:55+0000\n"
+"POT-Creation-Date: 2025-08-22 15:40+0000\n"
+"PO-Revision-Date: 2025-08-22 15:40+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -36,33 +36,33 @@ msgstr ""
 
 #. module: l10n_es_igic
 #: model:product.template,name:l10n_es_igic.producto_atc_dua_valoracion_0_product_template
-msgid "DUA Valoración IGIC 0%"
-msgstr ""
+msgid "DUA Valuation IGIC 0%"
+msgstr "DUA Valoración IGIC 0%"
 
 #. module: l10n_es_igic
 #: model:product.template,name:l10n_es_igic.producto_atc_dua_valoracion_15_product_template
-msgid "DUA Valoración IGIC 15%"
-msgstr ""
+msgid "DUA Valuation IGIC 15%"
+msgstr "DUA Valoración IGIC 15%"
 
 #. module: l10n_es_igic
 #: model:product.template,name:l10n_es_igic.producto_atc_dua_valoracion_20_product_template
-msgid "DUA Valoración IGIC 20%"
-msgstr ""
+msgid "DUA Valuation IGIC 20%"
+msgstr "DUA Valoración IGIC 20%"
 
 #. module: l10n_es_igic
 #: model:product.template,name:l10n_es_igic.producto_atc_dua_valoracion_03_product_template
-msgid "DUA Valoración IGIC 3%"
-msgstr ""
+msgid "DUA Valuation IGIC 3%"
+msgstr "DUA Valoración IGIC 3%"
 
 #. module: l10n_es_igic
 #: model:product.template,name:l10n_es_igic.producto_atc_dua_valoracion_07_product_template
-msgid "DUA Valoración IGIC 7%"
-msgstr ""
+msgid "DUA Valuation IGIC 7%"
+msgstr "DUA Valoración IGIC 7%"
 
 #. module: l10n_es_igic
 #: model:product.template,name:l10n_es_igic.producto_atc_dua_valoracion_95_product_template
-msgid "DUA Valoración IGIC 9.5%"
-msgstr ""
+msgid "DUA Valuation IGIC 9.5%"
+msgstr "DUA Valoración IGIC 9.5%"
 
 #. module: l10n_es_igic
 #. odoo-python
