@@ -41,12 +41,15 @@ msgstr "Creado en"
 
 #. module: l10n_es_partner
 #: model:ir.model.fields,field_description:l10n_es_partner.field_l10n_es_partner_import_wizard__display_name
+#: model:ir.model.fields,field_description:l10n_es_partner.field_res_bank__display_name
 #: model:ir.model.fields,field_description:l10n_es_partner.field_res_partner__display_name
 msgid "Display Name"
 msgstr ""
 
 #. module: l10n_es_partner
 #: model:ir.model.fields,field_description:l10n_es_partner.field_l10n_es_partner_import_wizard__id
+#: model:ir.model.fields,field_description:l10n_es_partner.field_res_bank__id
+#: model:ir.model.fields,field_description:l10n_es_partner.field_res_partner__id
 msgid "ID"
 msgstr "ID"
 
@@ -66,10 +69,8 @@ msgid "Import from local file"
 msgstr ""
 
 #. module: l10n_es_partner
-#: code:addons/l10n_es_partner/wizard/l10n_es_partner_wizard.py:0
 #: model:ir.actions.act_window,name:l10n_es_partner.action_l10n_es_partner_import
 #: model_terms:ir.ui.view,arch_db:l10n_es_partner.l10n_es_partner_import_wizard
-#, python-format
 msgid "Import spanish bank data"
 msgstr ""
 
@@ -82,6 +83,8 @@ msgstr ""
 
 #. module: l10n_es_partner
 #: model:ir.model.fields,field_description:l10n_es_partner.field_l10n_es_partner_import_wizard____last_update
+#: model:ir.model.fields,field_description:l10n_es_partner.field_res_bank____last_update
+#: model:ir.model.fields,field_description:l10n_es_partner.field_res_partner____last_update
 msgid "Last Modified on"
 msgstr ""
 

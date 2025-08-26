@@ -213,6 +213,7 @@ class Mod349(models.Model):
             # Fetch the latest presentation made for this move
             original_details = detail_obj.search(
                 [
+                    ("report_id.state", "!=", "cancelled"),
                     ("move_line_id.move_id", "=", origin_invoice.id),
                     ("partner_record_id.operation_key", "=", op_key),
                     ("id", "not in", visited_details.ids),
@@ -224,53 +225,14 @@ class Mod349(models.Model):
             if original_details:
                 # There's at least one previous 349 declaration report
                 report = original_details.mapped("report_id")[:1]
-                partner_id = original_details.mapped("partner_id")[:1]
                 original_details = original_details.filtered(
                     lambda d: d.report_id == report
                 )
-                origin_amount = sum(original_details.mapped("amount_untaxed"))
+                origin_amount = (
+                    original_details.partner_record_id.total_operation_amount
+                )
                 period_type = report.period_type
                 year = str(report.year)
-
-                # Sum all details period origin
-                all_details_period = detail_obj.search(
-                    [
-                        ("partner_id", "=", partner_id.id),
-                        ("partner_record_id.operation_key", "=", op_key),
-                        ("report_id", "=", report.id),
-                    ],
-                    order="report_id desc",
-                )
-                origin_amount = sum(all_details_period.mapped("amount_untaxed"))
-
-                # If there are intermediate periods between the original
-                # period and the period where the rectification is taking
-                # place, it's necessary to check if there is any rectification
-                # of the original period in between these periods. This
-                # happens in this way because the right original_amount
-                # will be the value of the total_operation_amount
-                # corresponding to the last period found in between the periods
-                other_invoice_period = (
-                    all_details_period.mapped("move_id") - origin_invoice
-                )
-                refund_invoice_ids = self.env["account.move"].search(
-                    [("reversed_entry_id", "in", other_invoice_period.ids)]
-                )
-                if refund_invoice_ids:
-                    last_refund_detail = refund_detail_obj.search(
-                        [
-                            ("report_id.date_start", ">", report.date_end),
-                            ("report_id.date_end", "<", self.date_start),
-                            ("move_id", "in", refund_invoice_ids.ids),
-                        ],
-                        order="date desc",
-                        limit=1,
-                    )
-                    if last_refund_detail:
-                        origin_amount = (
-                            last_refund_detail.refund_id.total_operation_amount
-                        )
-
             else:
                 # There's no previous 349 declaration report in Odoo
                 original_amls = move_line_obj.search(
@@ -302,9 +264,9 @@ class Mod349(models.Model):
                     period_type = month
             key = (partner, op_key, period_type, year)
             key_vals = data.setdefault(
-                key, {"original_amount": 0, "refund_details": refund_detail_obj}
+                key,
+                {"original_amount": origin_amount, "refund_details": refund_detail_obj},
             )
-            key_vals["original_amount"] += origin_amount
             key_vals["refund_details"] += refund_details
         for key, key_vals in data.items():
             partner, op_key, period_type, year = key

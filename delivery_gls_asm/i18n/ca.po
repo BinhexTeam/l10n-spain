@@ -17,16 +17,6 @@ msgstr ""
 "X-Generator: Weblate 4.3.2\n"
 
 #. module: delivery_gls_asm
-#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__0
-msgid "10:00 Service"
-msgstr "10:00 Servicio"
-
-#. module: delivery_gls_asm
-#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__2
-msgid "14:00 Service"
-msgstr "14:00 Servicio"
-
-#. module: delivery_gls_asm
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_service__27
 msgid "14H SOBRES"
 msgstr "14H SOBRES"
@@ -151,8 +141,8 @@ msgid "BICI"
 msgstr ""
 
 #. module: delivery_gls_asm
-#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__3
-msgid "BusinessParcel"
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_service__96
+msgid "BUSINESS PARCEL"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -201,6 +191,11 @@ msgid "Cash On Delivery"
 msgstr ""
 
 #. module: delivery_gls_asm
+#: model:ir.model.fields,field_description:delivery_gls_asm.field_delivery_carrier__gls_asm_cash_on_delivery
+msgid "Cash on delivery"
+msgstr ""
+
+#. module: delivery_gls_asm
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__stock_picking__gls_pickup_state__closed
 msgid "Cerrado"
 msgstr ""
@@ -218,6 +213,13 @@ msgstr ""
 #. module: delivery_gls_asm
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__stock_picking__gls_shipment_state__closed
 msgid "Cerrado por siniestro"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields,help:delivery_gls_asm.field_delivery_carrier__gls_asm_with_return
+msgid ""
+"Check this field to mark the delivery as 'With return'. This means that the "
+"customer receiving the delivery also has a package to return."
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -336,8 +338,8 @@ msgid "EUROBUSINESS SMALL PARCEL"
 msgstr ""
 
 #. module: delivery_gls_asm
-#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__18
-msgid "EconomyParcel"
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__16
+msgid "Economy"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -376,6 +378,11 @@ msgid "Ent. Pto. ASM"
 msgstr ""
 
 #. module: delivery_gls_asm
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__18
+msgid "Entrega 24-48h (serv. 96) o 48h (serv. 37)"
+msgstr ""
+
+#. module: delivery_gls_asm
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__stock_picking__gls_shipment_state__cancel_returned
 msgid "Entrega anulada (devuelta)"
 msgstr ""
@@ -403,6 +410,26 @@ msgstr ""
 #. module: delivery_gls_asm
 #: model:ir.model.fields,field_description:delivery_gls_asm.field_stock_picking__gls_pickup_state
 msgid "Estado recogida GLS"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__17
+msgid "Express"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__0
+msgid "Express 10:00"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__2
+msgid "Express 14:00"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__3
+msgid "Express 19:00"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -466,6 +493,11 @@ msgid "GLS Manifest"
 msgstr ""
 
 #. module: delivery_gls_asm
+#: model:ir.model.fields,field_description:delivery_gls_asm.field_stock_picking__gls_asm_picking_ref
+msgid "GLS Picking Reference"
+msgstr ""
+
+#. module: delivery_gls_asm
 #: code:addons/delivery_gls_asm/models/delivery_carrier.py:0
 #, python-format
 msgid "GLS Pickup extra info:<br/> Tracking number: %s<br/> Bultos: %s"
@@ -514,6 +546,11 @@ msgid ""
 "every customer we soon would have duplicated reference collisions. To "
 "prevent this, you should edit your picking sequence to a max of 15 "
 "characters."
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields,field_description:delivery_gls_asm.field_delivery_carrier__gls_asm_with_return
+msgid "GLS/ASM With return"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -584,6 +621,13 @@ msgstr ""
 #. module: delivery_gls_asm
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_service__12
 msgid "INTERNACIONAL EXPRESS"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields,help:delivery_gls_asm.field_delivery_carrier__gls_asm_cash_on_delivery
+msgid ""
+"If checked, it means that the carrier is paid with cash. It assumes there is "
+"a sale order linked and it will use that total amount as the value to be paid"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -662,6 +706,16 @@ msgid ""
 "No response from server recording GLS delivery {}.\n"
 "Traceback:\n"
 "{}"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model:ir.model.fields,field_description:delivery_gls_asm.field_stock_picking__gls_shipping_notes
+msgid "Notas de envío GLS"
+msgstr ""
+
+#. module: delivery_gls_asm
+#: model_terms:ir.ui.view,arch_db:delivery_gls_asm.view_picking_gls_form
+msgid "Notas para GLS"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -847,7 +901,7 @@ msgstr ""
 
 #. module: delivery_gls_asm
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_shiptime__11
-msgid "Rec. en NAVE."
+msgid "Rec. en agencia"
 msgstr ""
 
 #. module: delivery_gls_asm
@@ -987,6 +1041,12 @@ msgstr ""
 #: model:ir.model.fields.selection,name:delivery_gls_asm.selection__delivery_carrier__gls_asm_service__35
 msgid "dPRO"
 msgstr ""
+
+#~ msgid "10:00 Service"
+#~ msgstr "10:00 Servicio"
+
+#~ msgid "14:00 Service"
+#~ msgstr "14:00 Servicio"
 
 #~ msgid ""
 #~ "\n"
