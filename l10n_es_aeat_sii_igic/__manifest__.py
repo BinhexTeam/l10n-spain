@@ -4,7 +4,7 @@
 {
     "name": "Suministro Inmediato de Información para IGIC",
     "version": "14.0.1.0.0",
-    "author": "Sistemas de Datos," "Odoo Community Association (OCA)",
+    "author": "Sistemas de Datos," "Comunitea," "Odoo Community Association (OCA)",
     "website": "https://github.com/OCA/l10n-spain",
     "maintainer": "Comunitea",
     "category": "Accounting & Finance",
