@@ -1,2 +1,3 @@
 - David Diz Martínez \<<daviddiz@gmail.com>\>
+- Mario Montes \<<m.montes@binhex.cloud>\>
 - Abraham J. Febres \<<a.febres@binhex.cloud>\>
