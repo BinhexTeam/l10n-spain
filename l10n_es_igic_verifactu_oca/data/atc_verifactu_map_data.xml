@@ -8,7 +8,6 @@
             eval="[
                 (4, ref('l10n_es_igic.account_tax_template_igic_r_0')),
                 (4, ref('l10n_es_igic.account_tax_template_igic_r_3')),
-                (4, ref('l10n_es_igic.account_tax_template_igic_r_5')),
                 (4, ref('l10n_es_igic.account_tax_template_igic_r_7')),
                 (4, ref('l10n_es_igic.account_tax_template_igic_r_9_5')),
                 (4, ref('l10n_es_igic.account_tax_template_igic_r_15')),
