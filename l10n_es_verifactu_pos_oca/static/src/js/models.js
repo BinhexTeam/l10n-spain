@@ -3,6 +3,8 @@ odoo.define("l10n_es_verifactu_pos_oca.models", function (require) {
 
     var models = require("point_of_sale.models");
 
+    models.load_fields("res.company", ["verifactu_enabled"]);
+
     var order_super = models.Order.prototype;
     models.Order = models.Order.extend({
         export_for_printing: function () {
@@ -29,21 +31,9 @@ odoo.define("l10n_es_verifactu_pos_oca.models", function (require) {
                 this.is_simplified_invoice &&
                 (!this.fiscal_position ||
                     (this.fiscal_position && this.fiscal_position.aeat_active));
-
             if (isEnabled) {
-                const codeWriter = new window.ZXing.BrowserQRCodeSvgWriter();
                 const address = this._build_verifactu_qr_url();
-                const hints = new Map();
-                hints.set(
-                    window.ZXing.EncodeHintType.ERROR_CORRECTION,
-                    window.ZXing.QRCodeDecoderErrorCorrectionLevel.M
-                );
-                // Minimize quiet zone
-                hints.set(window.ZXing.EncodeHintType.MARGIN, 0);
-                const qr_code_svg = new XMLSerializer().serializeToString(
-                    codeWriter.write(address, 150, 150, hints)
-                );
-                return "data:image/svg+xml;base64," + window.btoa(qr_code_svg);
+                return address;
             }
             return false;
         },

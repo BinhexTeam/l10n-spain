@@ -13,7 +13,7 @@
         "pos_default_partner",
     ],
     "qweb": [
-        "static/src/xml/OrderReceipt.xml",
+        "static/src/xml/pos.xml",
     ],
     "data": [
         "views/pos_templates.xml",
