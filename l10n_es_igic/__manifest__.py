@@ -24,6 +24,7 @@
     "version": "10.0.1.0.1",
     "author": "David Diz Martínez <daviddiz@gmail.com>,"
               "Atlantux Consultores - Enrique Zanardi,"
+              "Binhex,"
               "Odoo Community Association (OCA)",
     "website": "https://github.com/daviddiz/igic",
     "category": "Localization/Europe",
@@ -33,11 +34,10 @@
     "license": "AGPL-3",
     "data": [
         "data/account_chart_template_igic.xml",
+        "data/tax_groups.xml",
         "data/account_account_igic.xml",
         "data/taxes_igic.xml",
         "data/fiscal_positions_igic.xml",
-        #"data/tax_codes_igic.xml",
-        #"data/account_chart_template_igic_post.xml",
     ],
     'installable': True
 }
