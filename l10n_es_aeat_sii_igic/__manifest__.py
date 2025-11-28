@@ -11,6 +11,7 @@
     "license": "AGPL-3",
     "depends": ["l10n_es_aeat_sii", "l10n_es_igic"],
     "data": [
+        "data/ir_config_parameter.xml",
         "data/aeat_sii_tax_agency_data.xml",
         "data/aeat_sii_mapping_registration_keys_data.xml",
         "data/aeat_sii_map_data.xml",
