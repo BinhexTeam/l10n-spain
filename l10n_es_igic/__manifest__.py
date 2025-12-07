@@ -5,6 +5,7 @@
 # Copyright 2019 Héctor J. Ravelo (http://sdatos.com)
 # Copyright 2024 Moisés Fargnoli (https://www.linkedin.com/in/moisesfargnoli/)
 # Copyright 2024 Binhex - Christian Ramos (http://binhex.es)
+# Copyright 2025 Binhex - Abraham Febres (http://binhex.es)
 # License AGPL-3 - See See https://www.gnu.org/licenses/agpl-3.0.html
 
 {
