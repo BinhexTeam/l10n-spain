@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 #    License AGPL-3 - See http://www.gnu.org/licenses/agpl-3.0
 from odoo import api, models, exceptions, _
+from odoo.exceptions import UserError
 from odoo.modules.registry import RegistryManager
 import json
 from odoo.tools import ustr
@@ -15,6 +16,36 @@ class AccountInvoice(models.Model):
         'in_invoice': 'l10n_es_aeat_sii_igic.wsdl_in',
         'in_refund': 'l10n_es_aeat_sii_igic.wsdl_in',
     }
+
+    @api.multi
+    def _get_sii_taxes_map(self, codes):
+        """
+        Sobrescribe para forzar el uso del mapa IGIC/ATC.
+        Lanza error si no existe la configuración.
+        """
+        self.ensure_one()
+
+        sii_map = self.env.ref('l10n_es_aeat_sii_igic.atc_sii_map', raise_if_not_found=False)
+
+        if not sii_map:
+            raise UserError(_(
+                "No se ha encontrado el mapa de impuestos SII para el IGIC.\n"
+                "Por favor, asegúrate de que el registro con ID 'atc_sii_map' "
+                "existe en el módulo 'l10n_es_aeat_sii_igic'."
+            ))
+
+        taxes = self.env['account.tax']
+        mapping_taxes = {}
+        
+        tax_templates = sii_map.sudo().map_lines.filtered(
+            lambda x: x.code in codes
+        ).taxes
+
+        # Convertimos las plantillas de impuestos a impuestos reales
+        for tax_template in tax_templates:
+            taxes += self.map_sii_tax_template(tax_template, mapping_taxes)
+            
+        return taxes
 
     def _get_sii_invoice_dict(self):
         inv_dict = super(AccountInvoice, self)._get_sii_invoice_dict()
