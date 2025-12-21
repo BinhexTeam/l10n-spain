@@ -69,13 +69,15 @@ odoo.define("l10n_es_ticketbai_pos.models", function (require) {
                 return (tbai_vat_regime_key && tbai_vat_regime_key.code) || null;
             }
             push_single_order(order) {
-                if (!this.company.tbai_enabled || !order) {
-                    return super.push_single_order(...arguments);
-                }
-
-                return order.tbai_current_invoice
-                    .then((tbai_inv) => {
-                        if (tbai_inv) {
+                if (this.company.tbai_enabled && order) {
+                    return order.tbai_current_invoice
+                        .then((tbai_inv) => {
+                            if (!tbai_inv) {
+                                console.error(
+                                    "[TicketBAI] push_single_order: tbai_inv is null/undefined"
+                                );
+                                return super.push_single_order(...arguments);
+                            }
                             const tbai_last_invoice_data = {
                                 order: {
                                     simplified_invoice:
@@ -87,18 +89,17 @@ odoo.define("l10n_es_ticketbai_pos.models", function (require) {
                                 expedition_date: tbai_inv.expedition_date,
                             };
                             this.set_tbai_last_invoice_data(tbai_last_invoice_data);
-                        }
-                        // Even if null → still push the order (it's already validated)
-                        return super.push_single_order(...arguments);
-                    })
-                    .catch((err) => {
-                        console.error(
-                            "push_single_order: TicketBAI processing failed",
-                            err
-                        );
-                        // Do NOT block order sync — but log it
-                        return super.push_single_order(...arguments);
-                    });
+                            return super.push_single_order(...arguments);
+                        })
+                        .catch((error) => {
+                            console.error(
+                                "[TicketBAI] push_single_order promise failed:",
+                                error
+                            );
+                            return super.push_single_order(...arguments);
+                        });
+                }
+                return super.push_single_order(...arguments);
             }
             get_tbai_last_invoice_data() {
                 /**
@@ -293,43 +294,47 @@ odoo.define("l10n_es_ticketbai_pos.models", function (require) {
             }
 
             async tbai_build_invoice() {
-                /*
-                 * Reset a previously rejected promise to a safe resolved state.
-                 * Works with both native Promises and jQuery Deferreds (still used in Odoo 16 POS).
-                 */
-                var current = this.tbai_current_invoice;
-                if (current && typeof current.catch === "function") {
-                    try {
-                        await current;
-                    } catch (e) {
-                        /* Absorb */
-                    }
-                    if (
-                        (current.state && current.state() === "rejected") ||
-                        (current.isRejected && current.isRejected())
-                    ) {
-                        this.tbai_current_invoice = Promise.resolve(null);
-                    }
+                if (this.tbai_current_invoice.state === "rejected") {
+                    this.tbai_current_invoice = Promise.resolve();
                 }
-
-                this.tbai_current_invoice = this.tbai_current_invoice.then(async () => {
-                    if (!this.check_tbai_conf() || this.to_invoice) {
-                        return null;
-                    }
-
-                    const tbai_inv = new tbai_models.TicketBAISimplifiedInvoice(
-                        {},
-                        {
-                            pos: this.pos,
-                            order: this,
+                this.tbai_current_invoice = this.tbai_current_invoice
+                    .then(async () => {
+                        let tbai_inv = null;
+                        if (this.check_tbai_conf() && !this.to_invoice) {
+                            tbai_inv = new tbai_models.TicketBAISimplifiedInvoice(
+                                {},
+                                {
+                                    pos: this.pos,
+                                    order: this,
+                                }
+                            );
+                            try {
+                                await tbai_inv.build_invoice();
+                                console.log("[TicketBAI] Invoice built successfully:", {
+                                    number: tbai_inv.number,
+                                    number_prefix: tbai_inv.number_prefix,
+                                    signature_value: tbai_inv.signature_value,
+                                    tbai_identifier: tbai_inv.tbai_identifier,
+                                });
+                            } catch (error) {
+                                console.error(
+                                    "[TicketBAI] build_invoice() failed:",
+                                    error
+                                );
+                                tbai_inv = null;
+                            }
+                        } else {
+                            console.warn("[TicketBAI] build_invoice() skipped:", {
+                                check_tbai_conf: this.check_tbai_conf(),
+                                to_invoice: this.to_invoice,
+                            });
                         }
-                    );
-
-                    await tbai_inv.build_invoice();
-                    return tbai_inv;
-                });
-
-                return this.tbai_current_invoice;
+                        return tbai_inv;
+                    })
+                    .catch((error) => {
+                        console.error("[TicketBAI] Promise chain failed:", error);
+                        return null;
+                    });
             }
         };
     Registries.Model.extend(Order, L10nEsTicketBAIPosOrder);

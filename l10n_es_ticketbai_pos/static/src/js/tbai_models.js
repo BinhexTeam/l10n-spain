@@ -7,10 +7,13 @@
 odoo.define("l10n_es_ticketbai_pos.tbai_models", function (require) {
     "use strict";
 
+    const core = require("web.core");
+    const _t = core._t;
     const field_utils = require("web.field_utils");
 
     const tbai = window.tbai;
     const QRCode = window.QRCode;
+    const {Gui} = require("point_of_sale.Gui");
 
     /* A TicketBAI Simplified Invoice represents a customer's order
     to be exported to the Tax Agency.
@@ -46,94 +49,174 @@ odoo.define("l10n_es_ticketbai_pos.tbai_models", function (require) {
             const deviceId = this.pos.config.tbai_device_serial_number || null;
             let simplified_invoice = null;
             let tbai_json = null;
-            this.previous_tbai_invoice = this.pos.get_tbai_last_invoice_data();
-            this.expedition_date = new Date();
-            if (this.pos.config.pos_sequence_by_device) {
-                this.number_prefix =
-                    this.pos.get_device().device_simplified_invoice_prefix;
-                simplified_invoice =
-                    this.number_prefix +
-                    this.pos.get_padding_simple_inv(
-                        this.pos.get_device().device_simplified_invoice_number,
-                        this.pos.get_device().device_simplified_invoice_padding
-                    );
-            } else {
-                this.number_prefix = this.pos.config.l10n_es_simplified_invoice_prefix;
-                simplified_invoice =
-                    this.order.simplified_invoice ||
-                    this.number_prefix +
-                        this.pos.get_padding_simple_inv(
-                            this.pos.config.l10n_es_simplified_invoice_number,
-                            this.pos.config.l10n_es_simplified_invoice_padding
-                        );
-            }
-            this.number = simplified_invoice.slice(this.number_prefix.length);
 
-            if (this.order.fiscal_position) {
-                const tbai_vat_regime_key =
-                    this.order.fiscal_position.tbai_vat_regime_key;
-                if (tbai_vat_regime_key) {
-                    const id_vat_regime_key =
-                        this.order.fiscal_position.tbai_vat_regime_key[0];
-                    const object_vat_regime_key = this.pos.tbai_vat_regime_keys.find(
-                        (x) => x.id === id_vat_regime_key
-                    );
-                    this.vat_regime_key = object_vat_regime_key.code;
-                }
-                const tbai_vat_regime_key2 =
-                    this.order.fiscal_position.tbai_vat_regime_key2;
-                if (tbai_vat_regime_key2) {
-                    const id_vat_regime_key =
-                        this.order.fiscal_position.tbai_vat_regime_key2[0];
-                    const object_vat_regime_key = this.pos.tbai_vat_regime_keys.find(
-                        (x) => x.id === id_vat_regime_key
-                    );
-                    this.vat_regime_key2 = object_vat_regime_key.code;
-                }
-                const tbai_vat_regime_key3 =
-                    this.order.fiscal_position.tbai_vat_regime_key3;
-                if (tbai_vat_regime_key3) {
-                    const id_vat_regime_key =
-                        this.order.fiscal_position.tbai_vat_regime_key3[0];
-                    const object_vat_regime_key = this.pos.tbai_vat_regime_keys.find(
-                        (x) => x.id === id_vat_regime_key
-                    );
-                    this.vat_regime_key3 = object_vat_regime_key.code;
-                }
-            }
-
-            tbai_json = this.export_as_JSON();
-            if (!_.isEmpty(tbai_json) && this.pos.tbai_signer !== null) {
-                if (typeof deviceId === "string" || deviceId instanceof String) {
-                    options.deviceId = deviceId;
-                }
-                try {
-                    this.unsigned_datas = tbai.toXml(
-                        tbai_json.Invoice,
-                        tbai_json.PreviousInvoiceId || null,
-                        tbai_json.Software,
-                        options
-                    );
-                    this.datas = await this.pos.tbai_signer.sign(this.unsigned_datas);
-                    this.signature_value = tbai.getTbaiChainInfo(this.datas).hash;
-                    this.tbai_identifier = tbai.getTbaiId(this.datas);
-                    this.tbai_qr_url = tbai.getTbaiUrlFromBaseURL(
-                        this.datas,
-                        this.pos.tbai_qr_base_url
-                    );
-                    this.tbai_qr_src = await QRCode.toDataURL(
-                        this.tbai_qr_url,
-                        this.qr_options
-                    );
-                    return Promise.resolve();
-                } catch (e) {
-                    console.error("TicketBAI signing/XML generation failed:", e);
-                    throw e;
-                }
-            } else {
-                return Promise.reject(
-                    new Error("TBAI JSON is empty or TBAI signer is null")
+            try {
+                this.previous_tbai_invoice = this.pos.get_tbai_last_invoice_data();
+                this.expedition_date = new Date();
+                console.log(
+                    "[TicketBAI] Step 1: Set expedition_date:",
+                    this.expedition_date
                 );
+
+                if (this.pos.config.pos_sequence_by_device) {
+                    this.number_prefix =
+                        this.pos.get_device().device_simplified_invoice_prefix;
+                    simplified_invoice =
+                        this.number_prefix +
+                        this.pos.get_padding_simple_inv(
+                            this.pos.get_device().device_simplified_invoice_number,
+                            this.pos.get_device().device_simplified_invoice_padding
+                        );
+                } else {
+                    this.number_prefix =
+                        this.pos.config.l10n_es_simplified_invoice_prefix;
+                    simplified_invoice =
+                        this.order.simplified_invoice ||
+                        this.number_prefix +
+                            this.pos.get_padding_simple_inv(
+                                this.pos.config.l10n_es_simplified_invoice_number,
+                                this.pos.config.l10n_es_simplified_invoice_padding
+                            );
+                }
+                this.number = simplified_invoice.slice(this.number_prefix.length);
+                console.log("[TicketBAI] Step 2: Set number and number_prefix:", {
+                    number_prefix: this.number_prefix,
+                    number: this.number,
+                });
+
+                if (this.order.fiscal_position) {
+                    const tbai_vat_regime_key =
+                        this.order.fiscal_position.tbai_vat_regime_key;
+                    if (tbai_vat_regime_key) {
+                        const id_vat_regime_key =
+                            this.order.fiscal_position.tbai_vat_regime_key[0];
+                        const object_vat_regime_key =
+                            this.pos.tbai_vat_regime_keys.find(
+                                (x) => x.id === id_vat_regime_key
+                            );
+                        this.vat_regime_key = object_vat_regime_key.code;
+                    }
+                    const tbai_vat_regime_key2 =
+                        this.order.fiscal_position.tbai_vat_regime_key2;
+                    if (tbai_vat_regime_key2) {
+                        const id_vat_regime_key =
+                            this.order.fiscal_position.tbai_vat_regime_key2[0];
+                        const object_vat_regime_key =
+                            this.pos.tbai_vat_regime_keys.find(
+                                (x) => x.id === id_vat_regime_key
+                            );
+                        this.vat_regime_key2 = object_vat_regime_key.code;
+                    }
+                    const tbai_vat_regime_key3 =
+                        this.order.fiscal_position.tbai_vat_regime_key3;
+                    if (tbai_vat_regime_key3) {
+                        const id_vat_regime_key =
+                            this.order.fiscal_position.tbai_vat_regime_key3[0];
+                        const object_vat_regime_key =
+                            this.pos.tbai_vat_regime_keys.find(
+                                (x) => x.id === id_vat_regime_key
+                            );
+                        this.vat_regime_key3 = object_vat_regime_key.code;
+                    }
+                }
+                console.log("[TicketBAI] Step 3: Set VAT regime keys:", {
+                    vat_regime_key: this.vat_regime_key,
+                    vat_regime_key2: this.vat_regime_key2,
+                    vat_regime_key3: this.vat_regime_key3,
+                });
+
+                tbai_json = this.export_as_JSON();
+                console.log("[TicketBAI] Step 4: export_as_JSON result:", {
+                    isEmpty: _.isEmpty(tbai_json),
+                    keys: Object.keys(tbai_json),
+                    tbai_json: tbai_json,
+                });
+
+                if (!_.isEmpty(tbai_json) && this.pos.tbai_signer !== null) {
+                    console.log(
+                        "[TicketBAI] Step 5: Conditions met, proceeding with signing"
+                    );
+                    if (typeof deviceId === "string" || deviceId instanceof String) {
+                        options.deviceId = deviceId;
+                    }
+                    try {
+                        this.unsigned_datas = tbai.toXml(
+                            tbai_json.Invoice,
+                            tbai_json.PreviousInvoiceId || null,
+                            tbai_json.Software,
+                            options
+                        );
+                        console.log("[TicketBAI] Step 6: XML generated");
+
+                        this.datas = await this.pos.tbai_signer.sign(
+                            this.unsigned_datas
+                        );
+                        console.log("[TicketBAI] Step 7: Signature acquired");
+
+                        this.signature_value = tbai.getTbaiChainInfo(this.datas).hash;
+                        console.log(
+                            "[TicketBAI] Step 8: Signature value set:",
+                            this.signature_value
+                        );
+
+                        this.tbai_identifier = tbai.getTbaiId(this.datas);
+                        console.log(
+                            "[TicketBAI] Step 9: TBAI identifier set:",
+                            this.tbai_identifier
+                        );
+
+                        this.tbai_qr_url = tbai.getTbaiUrlFromBaseURL(
+                            this.datas,
+                            this.pos.tbai_qr_base_url
+                        );
+                        console.log("[TicketBAI] Step 10: QR URL generated");
+
+                        this.tbai_qr_src = await QRCode.toDataURL(
+                            this.tbai_qr_url,
+                            this.qr_options
+                        );
+                        console.log(
+                            "[TicketBAI] Step 11: QR code generated successfully"
+                        );
+
+                        return Promise.resolve();
+                    } catch (e) {
+                        console.error("[TicketBAI] Error during signing process:", {
+                            message: e.message,
+                            stack: e.stack,
+                            error: e,
+                        });
+                        Gui.showPopup("ErrorPopup", {
+                            title: _t("TicketBAI"),
+                            body: e.message,
+                        });
+                        return Promise.reject(e);
+                    }
+                } else {
+                    const reason = _.isEmpty(tbai_json)
+                        ? "TBAI JSON is empty"
+                        : "TBAI signer is null";
+                    console.error("[TicketBAI] Step 5 failed:", {
+                        reason: reason,
+                        isEmpty: _.isEmpty(tbai_json),
+                        signerNull: this.pos.tbai_signer === null,
+                        tbai_json: tbai_json,
+                    });
+                    return Promise.reject(
+                        new Error("TBAI JSON is empty or TBAI signer is null")
+                    );
+                }
+            } catch (error) {
+                console.error("[TicketBAI] Unexpected error in build_invoice():", {
+                    message: error.message,
+                    stack: error.stack,
+                    error: error,
+                });
+                Gui.showPopup("ErrorPopup", {
+                    title: _t("TicketBAI"),
+                    body: error.message,
+                });
+                return Promise.reject(error);
             }
         }
 
