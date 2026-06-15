@@ -67,6 +67,13 @@ class TestL10nEsVerifactuPOS(TestVerifactuCommon):
                 .id,
             }
         )
+        cls.pos_receivable_account_type = cls.env["account.account.type"].create(
+            {
+                "name": "POS Receivable Type",
+                "type": "receivable",
+                "internal_group": "asset",
+            }
+        )
         cls.company.account_default_pos_receivable_account_id = cls.env[
             "account.account"
         ].create(
@@ -74,7 +81,7 @@ class TestL10nEsVerifactuPOS(TestVerifactuCommon):
                 "code": "X1012.POS",
                 "name": "Debtors - (POS)",
                 "reconcile": True,
-                "account_type": "asset_receivable",
+                "user_type_id": cls.pos_receivable_account_type.id,
             }
         )
         cls.pos_receivable_account = (
@@ -88,10 +95,10 @@ class TestL10nEsVerifactuPOS(TestVerifactuCommon):
             cls.company.account_default_pos_receivable_account_id,
             {"name": "POS Receivable Bank"},
         )
-        cls.outstanding_bank = cls.copy_account(
-            cls.company.account_journal_payment_debit_account_id,
-            {"name": "Outstanding Bank"},
-        )
+        # cls.outstanding_bank = cls.copy_account(
+        #     cls.company.account_journal_payment_debit_account_id,
+        #     {"name": "Outstanding Bank"},
+        # )
         cls.default_journal_cash = cls.env["account.journal"].search(
             [("company_id", "=", cls.company.id), ("type", "=", "cash")], limit=1
         )
@@ -101,24 +108,24 @@ class TestL10nEsVerifactuPOS(TestVerifactuCommon):
         cls.cash_pm1 = cls.env["pos.payment.method"].create(
             {
                 "name": "Cash",
-                "journal_id": cls.default_journal_cash.id,
+                "cash_journal_id": cls.default_journal_cash.id,
                 "receivable_account_id": cls.pos_receivable_cash.id,
-                "company_id": cls.env.company.id,
+                "company_id": cls.company.id,
             }
         )
         cls.bank_pm1 = cls.env["pos.payment.method"].create(
             {
                 "name": "Bank",
-                "journal_id": cls.default_journal_bank.id,
+                "cash_journal_id": cls.default_journal_bank.id,
                 "receivable_account_id": cls.pos_receivable_bank.id,
-                "outstanding_account_id": cls.outstanding_bank.id,
-                "company_id": cls.env.company.id,
+                # "outstanding_account_id": cls.outstanding_bank.id,
+                "company_id": cls.company.id,
             }
         )
         cls.pos_config.write(
             {"payment_method_ids": [(6, 0, (cls.cash_pm1 + cls.bank_pm1).ids)]}
         )
-        cls.pos_config.open_ui()
+        cls.pos_config.open_session_cb()
         cls.pos_session = cls.pos_config.current_session_id
 
         cls.tax_21 = cls.env.ref(
@@ -161,6 +168,7 @@ class TestL10nEsVerifactuPOS(TestVerifactuCommon):
                 "l10n_es_unique_id": simplified and "SIM/0001" or False,
                 "uid": uid,
                 "user_id": self.env.uid,
+                "company_id": self.company.id,
                 "statement_ids": [
                     (
                         0,
@@ -389,7 +397,7 @@ class TestL10nEsVerifactuPOS(TestVerifactuCommon):
         order_2 = self.env["pos.order"].browse(order_ids_2[0]["id"])
 
         # Set up refund relationship (simulate POS refund linking)
-        order_2.refunded_order_ids = order_1
+        order_2.refund_order_ids = order_1
 
         # Check rectification in invoice dict
         result = order_2._get_verifactu_invoice_dict_out()

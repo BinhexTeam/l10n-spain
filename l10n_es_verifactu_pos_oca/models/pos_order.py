@@ -323,8 +323,8 @@ class PosOrder(models.Model):
         if self._is_refund_order():
             inv_dict["TipoRectificativa"] = self.verifactu_refund_type
             # Add reference to original order if available
-            if self.refunded_order_ids:
-                original_order = self.refunded_order_ids[0]
+            if self.refund_order_ids:
+                original_order = self.refund_order_ids[0]
                 inv_dict["FacturasRectificadas"] = [
                     {
                         "IDFacturaRectificada": {
