@@ -21,7 +21,7 @@ odoo.define("l10n_es_verifactu_pos_oca.models", function (require) {
                 nif: vatNumber,
                 numserie: this.l10n_es_unique_id,
                 fecha: formattedDate,
-                importe: this.get_total_with_tax(),
+                importe: this.get_total_with_tax().toFixed(2),
             });
             return `${baseUrl}?${params.toString()}`;
         },
@@ -33,7 +33,7 @@ odoo.define("l10n_es_verifactu_pos_oca.models", function (require) {
                     (this.fiscal_position && this.fiscal_position.aeat_active));
             if (isEnabled) {
                 const address = this._build_verifactu_qr_url();
-                return address;
+                return encodeURIComponent(address);
             }
             return false;
         },

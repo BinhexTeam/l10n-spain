@@ -11,6 +11,7 @@
         "l10n_es_pos",
         "l10n_es_verifactu_oca",
         "pos_default_partner",
+        "pos_order_return",
     ],
     "qweb": [
         "static/src/xml/pos.xml",
