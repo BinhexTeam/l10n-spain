@@ -4,6 +4,7 @@
 # Copyright 2021 Tecnativa - João Marques
 # Copyright 2017-2023 Tecnativa - Pedro M. Baeza
 # Copyright 2023 Moduon Team - Eduardo de Miguel
+# Copyright 2026 Binhex - Edilio Escalona Almira
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html)
 
 import json
@@ -18,6 +19,7 @@ from odoo.addons.l10n_es_aeat.tests.test_l10n_es_aeat_certificate import (
 from odoo.addons.l10n_es_aeat.tests.test_l10n_es_aeat_mod_base import (
     TestL10nEsAeatModBase,
 )
+from odoo.addons.l10n_es_aeat_sii_oca.models.sii_mixin import SII_MACRODATA_LIMIT
 
 
 class TestL10nEsAeatSiiBase(TestL10nEsAeatModBase, TestL10nEsAeatCertificateBase):
@@ -367,6 +369,172 @@ class TestL10nEsAeatSii(TestL10nEsAeatSiiBase):
             else:
                 self.assertFalse(invoice.sii_dua_invoice)
         return
+
+    def _check_sii_send_delay_mark(self, invoice, root_key):
+        """Check that the send delay only adds its mark to `root_key`.
+
+        The document dict is built before and after setting the flag, so the
+        check also fails if any other key of that block is lost or altered.
+
+        :param invoice: document without the send delay set.
+        :param root_key: block of the dict where the mark belongs.
+        :return: the dict built with the send delay set.
+        """
+        self.assertFalse(invoice.sii_send_delay)
+        before = invoice._get_aeat_invoice_dict()
+        self.assertNotIn("RegPrevioGGEEREDEMEoCompetencia", before[root_key])
+        invoice.sii_send_delay = True
+        after = invoice._get_aeat_invoice_dict()
+        expected_block = dict(before[root_key], RegPrevioGGEEREDEMEoCompetencia="S")
+        expected = dict(before)
+        expected[root_key] = expected_block
+        self.assertEqual(expected, after)
+        return after
+
+    def test_sii_send_delay_dict(self):
+        """The send delay only adds its mark to the document block."""
+        mapping = [
+            (
+                "out_invoice",
+                [(100, ["s_iva10b"]), (200, ["s_iva21s"])],
+                {},
+                "FacturaExpedida",
+            ),
+            (
+                "out_refund",
+                [(100, ["s_iva10b"]), (100, ["s_iva10b"]), (200, ["s_iva21s"])],
+                {},
+                "FacturaExpedida",
+            ),
+            (
+                "in_invoice",
+                [(100, ["p_iva10_bc", "p_irpf19"]), (200, ["p_iva21_sc", "p_irpf19"])],
+                {
+                    "ref": "sup0001",
+                    "date": "2020-02-01",
+                    "sii_account_registration_date": "2020-10-01",
+                },
+                "FacturaRecibida",
+            ),
+            (
+                "in_refund",
+                [(100, ["p_iva10_bc"])],
+                {"ref": "sup0002", "sii_account_registration_date": "2020-10-01"},
+                "FacturaRecibida",
+            ),
+        ]
+        for inv_type, lines, extra_vals, root_key in mapping:
+            with self.subTest(inv_type=inv_type):
+                invoice = self._create_and_test_invoice_sii_dict(
+                    inv_type, lines, extra_vals
+                )
+                self._check_sii_send_delay_mark(invoice, root_key)
+
+    def test_sii_send_delay_dua_invoice(self):
+        """The mark survives the DUA rewrite of the supplier document."""
+        invoice = self._create_and_test_invoice_sii_dict(
+            "in_invoice",
+            [(100, ["p_iva21_ibc_group"])],
+            {
+                "ref": "sup0001",
+                "sii_account_registration_date": "2020-10-01",
+                "currency_id": self.usd.id,
+            },
+        )
+        self.assertTrue(invoice.sii_dua_invoice)
+        inv_dict = self._check_sii_send_delay_mark(invoice, "FacturaRecibida")
+        # DUA documents report the company as counterpart and no total amount
+        company_nif = self.company.partner_id._parse_aeat_vat_info()[2]
+        self.assertEqual(inv_dict["FacturaRecibida"]["Contraparte"]["NIF"], company_nif)
+        self.assertNotIn("ImporteTotal", inv_dict["FacturaRecibida"])
+
+    def test_sii_send_delay_macrodata(self):
+        """The mark coexists with the macro data one."""
+        for inv_type, root_key in [
+            ("out_invoice", "FacturaExpedida"),
+            ("in_invoice", "FacturaRecibida"),
+        ]:
+            with self.subTest(inv_type=inv_type):
+                invoice = self._create_invoice(inv_type)
+                # The supplier number is mandatory in purchase documents
+                invoice.ref = f"sup_macrodata_{inv_type}"
+                invoice.invoice_line_ids.price_unit = SII_MACRODATA_LIMIT
+                self.assertTrue(invoice.sii_macrodata)
+                inv_dict = self._check_sii_send_delay_mark(invoice, root_key)
+                self.assertEqual(inv_dict[root_key]["Macrodato"], "S")
+
+    def test_sii_send_delay_set_on_creation(self):
+        """The mark is honored when the flag comes in the creation values."""
+        # The copy defaults are forwarded to `create()`
+        origin = self._create_invoice("out_invoice")
+        invoice = origin.copy(
+            {"invoice_date": origin.invoice_date, "sii_send_delay": True}
+        )
+        self.assertTrue(invoice.sii_send_delay)
+        inv_dict = invoice._get_aeat_invoice_dict()
+        self.assertEqual(
+            inv_dict["FacturaExpedida"]["RegPrevioGGEEREDEMEoCompetencia"], "S"
+        )
+
+    def test_sii_send_delay_not_copied(self):
+        """The send delay belongs to one document, so it isn't duplicated."""
+        for inv_type in ["out_invoice", "in_invoice"]:
+            with self.subTest(inv_type=inv_type):
+                invoice = self._create_invoice(inv_type)
+                invoice.sii_send_delay = True
+                new_invoice = invoice.copy()
+                self.assertTrue(invoice.sii_send_delay)
+                self.assertFalse(new_invoice.sii_send_delay)
+
+    def test_sii_send_delay_not_reversed(self):
+        """A credit note doesn't inherit the send delay of its origin."""
+        self.invoice.sii_send_delay = True
+        reversal = (
+            self.env["account.move.reversal"]
+            .with_context(
+                active_id=self.invoice.id,
+                active_model=self.invoice._name,
+                active_ids=self.invoice.ids,
+            )
+            .create({"journal_id": self.invoice.journal_id.id})
+        )
+        reversal.reverse_moves()
+        self.assertTrue(reversal.new_move_ids)
+        self.assertFalse(reversal.new_move_ids.sii_send_delay)
+
+    def test_sii_send_delay_after_sending(self):
+        """Setting the send delay on a sent document marks it as modified."""
+        for inv_type in ["out_invoice", "in_invoice"]:
+            with self.subTest(inv_type=inv_type):
+                invoice = self._create_invoice(inv_type)
+                # The supplier number is mandatory in purchase documents
+                invoice.ref = f"sup_sent_{inv_type}"
+                invoice.action_post()
+                invoice.write(
+                    {
+                        "aeat_content_sent": json.dumps(
+                            invoice._get_aeat_invoice_dict()
+                        ),
+                        "aeat_state": "sent",
+                    }
+                )
+                self.assertTrue(invoice._sii_invoice_dict_not_modified())
+                invoice.sii_send_delay = True
+                self.assertFalse(invoice._sii_invoice_dict_not_modified())
+
+    def test_sii_send_delay_cancel_dict(self):
+        """Cancellation payloads never carry the mark."""
+        for inv_type in ["out_invoice", "out_refund", "in_invoice", "in_refund"]:
+            with self.subTest(inv_type=inv_type):
+                invoice = self._create_invoice(inv_type)
+                # The supplier number is mandatory in purchase documents
+                invoice.ref = f"sup_cancel_{inv_type}"
+                invoice.sii_send_delay = True
+                cancel_dict = invoice._get_cancel_sii_invoice_dict()
+                self.assertIn("IDFactura", cancel_dict)
+                self.assertNotIn(
+                    "RegPrevioGGEEREDEMEoCompetencia", json.dumps(cancel_dict)
+                )
 
     def test_sii_description(self):
         company = self.invoice.company_id
