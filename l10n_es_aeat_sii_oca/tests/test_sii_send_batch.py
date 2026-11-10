@@ -1,4 +1,5 @@
 # Copyright 2026 Tecnativa - Carlos Dauden
+# Copyright 2026 Mario Montes <admin@syci.es>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html)
 import json
 from unittest.mock import patch
@@ -14,9 +15,10 @@ class FakeSiiService:
     whole request when it includes a faulty number, as the AEAT does with a
     schema error."""
 
-    def __init__(self, results=None, faulty=()):
+    def __init__(self, results=None, faulty=(), trim_returned_number=False):
         self.results = results or {}
         self.faulty = faulty
+        self.trim_returned_number = trim_returned_number
         self.calls = []
         self.operations = []
 
@@ -44,8 +46,12 @@ class FakeSiiService:
         for inv in payload:
             issuer = inv["IDFactura"]["IDEmisorFactura"].get("NIF")
             number = inv["IDFactura"]["NumSerieFacturaEmisor"]
+            id_factura = inv["IDFactura"]
+            if self.trim_returned_number and isinstance(number, str):
+                id_factura = dict(id_factura)
+                id_factura["NumSerieFacturaEmisor"] = number.strip()
             line = {
-                "IDFactura": inv["IDFactura"],
+                "IDFactura": id_factura,
                 "EstadoRegistro": "Correcto",
                 "CodigoErrorRegistro": None,
                 "DescripcionErrorRegistro": None,
@@ -261,3 +267,14 @@ class TestSiiSendBatch(TestL10nEsAeatSiiBase):
         self.assertEqual(invoices.mapped("sii_needs_cancel"), [False, False, True])
         self.assertTrue(invoices[2].aeat_send_failed)
         self.assertEqual(invoices[2].aeat_send_error, "1100 | Wrong value")
+
+    def test_received_invoice_matches_trimmed_supplier_number(self):
+        """A trimmed number in the response still matches the sent invoice."""
+        invoice = self._create_posted_invoices("in_invoice", 1, ref=" 2261046215 ")
+        self.assertEqual(invoice.ref, " 2261046215 ")
+        service = FakeSiiService(trim_returned_number=True)
+        self._send(invoice, service)
+        sent_number = service.calls[0][0]["IDFactura"]["NumSerieFacturaEmisor"]
+        self.assertEqual(sent_number, " 2261046215 ")
+        self.assertEqual(invoice.aeat_state, "sent")
+        self.assertFalse(invoice.aeat_send_failed)
