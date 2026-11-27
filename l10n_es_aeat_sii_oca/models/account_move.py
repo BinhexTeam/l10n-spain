@@ -18,10 +18,37 @@ import logging
 from unidecode import unidecode
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.osv.expression import AND, OR
+from odoo.tools import format_date
 
 SII_VALID_INVOICE_STATES = ["posted"]
+SII_MONTHLY_PERIOD_SELECTION = [
+    ("%02d" % month, "%02d" % month) for month in range(1, 13)
+]
+SII_QUARTERLY_PERIOD_SELECTION = [
+    ("1T", "1T"),
+    ("2T", "2T"),
+    ("3T", "3T"),
+    ("4T", "4T"),
+]
+SII_DEDUCTION_PERIOD_SELECTION = [
+    *SII_MONTHLY_PERIOD_SELECTION,
+    *SII_QUARTERLY_PERIOD_SELECTION,
+]
+
+
+def _get_sii_deduction_year_selection(record=None):
+    """Years that can appear in EjercicioDeduccion.
+
+    The form narrows this list from the liquidation year, or the next
+    year when that year is closed, through four years after the invoice
+    date. The selection itself stays wide enough for older invoices.
+    """
+    current_year = fields.Date.today().year
+    return [(str(year), str(year)) for year in range(2017, current_year + 9)]
+
+
 _logger = logging.getLogger(__name__)
 
 
@@ -43,10 +70,11 @@ class AccountMove(models.Model):
             ("R2", "Art. 80 Three LIVA - Bankruptcy (R2)"),
             ("R3", "Art. 80 Four LIVA - Bad debt (R3)"),
             ("R4", "Rest of causes (R4)"),
+            ("R5", "Simplified invoice (R5)"),
         ],
-        help="Fill this field when the refund are one of the specific cases"
-        " of article 80 of LIVA for notifying to SII with the proper"
-        " invoice type.",
+        help="TipoFactura of a refund. On a supplier refund, leave it empty "
+        "to send R4. A substitution with a rectified base or quota also "
+        "sends the original invoice number and date.",
     )
     sii_registration_key_additional1 = fields.Many2one(
         comodel_name="aeat.sii.mapping.registration.keys",
@@ -88,14 +116,299 @@ class AccountMove(models.Model):
     sii_is_accounting_receipt = fields.Boolean(string="Is accounting receipt?")
     sii_dua_invoice = fields.Boolean(compute="_compute_dua_invoice")
     sii_send_date_visible = fields.Boolean(compute="_compute_sii_send_date_visible")
+    sii_deducir_en_periodo_posterior = fields.Boolean(
+        string="Deduct in a later period",
+        copy=False,
+        help="Sends ADeducirEnPeriodoPosterior as S. "
+        "The deduction year and period are then required. "
+        "Leave it unchecked to omit the three nodes.",
+    )
+    sii_ejercicio_deduccion = fields.Selection(
+        selection=_get_sii_deduction_year_selection,
+        string="Deduction year",
+        copy=False,
+        help="EjercicioDeduccion, four digits (YYYY). "
+        "From the liquidation year, or the following year when that "
+        "year has no later period, through four years from the "
+        "accrual/invoice date.",
+    )
+    sii_periodo_deduccion = fields.Selection(
+        selection=SII_DEDUCTION_PERIOD_SELECTION,
+        string="Deduction period",
+        copy=False,
+        help="PeriodoDeduccion. Use 01-12 when the company files monthly "
+        "and 1T-4T when it files quarterly. "
+        "The year and period together must be strictly later than the "
+        "liquidation period: the month or quarter has to be greater "
+        "only in the same year. The annual value 0A is not accepted.",
+    )
+    sii_deduction_period_bounds = fields.Json(
+        compute="_compute_sii_deduction_period_bounds",
+    )
+
+    @api.depends(
+        "move_type",
+        "invoice_date",
+        "company_id.sii_period",
+        "sii_account_registration_date",
+        "aeat_state",
+        "aeat_content_sent",
+    )
+    def _compute_sii_deduction_period_bounds(self):
+        for move in self:
+            move.sii_deduction_period_bounds = (
+                move._prepare_sii_deduction_period_bounds()
+            )
+
+    @api.onchange("sii_deducir_en_periodo_posterior")
+    def _onchange_sii_deducir_en_periodo_posterior(self):
+        if self.move_type not in ("in_invoice", "in_refund"):
+            return
+        if (
+            self.sii_deducir_en_periodo_posterior
+            and self._is_sii_deduction_choice_allowed(
+                self.sii_ejercicio_deduccion, self.sii_periodo_deduccion
+            )
+        ):
+            return
+        self.sii_ejercicio_deduccion = False
+        self.sii_periodo_deduccion = False
+
+    @api.onchange("sii_ejercicio_deduccion")
+    def _onchange_sii_ejercicio_deduccion(self):
+        if (
+            self.move_type not in ("in_invoice", "in_refund")
+            or not self.sii_deducir_en_periodo_posterior
+            or self._is_sii_deduction_choice_allowed(
+                self.sii_ejercicio_deduccion, self.sii_periodo_deduccion
+            )
+        ):
+            return
+        self.sii_periodo_deduccion = False
+
+    @api.onchange("invoice_date")
+    def _onchange_sii_deduction_invoice_date(self):
+        """Drop a deduction choice the invoice date no longer allows.
+
+        ATC counts the four-year term from the accrual. This module sends
+        that date as FechaExpedicionFacturaEmisor (invoice_date).
+        """
+        if self.move_type not in ("in_invoice", "in_refund"):
+            return
+        if not self.sii_ejercicio_deduccion and not self.sii_periodo_deduccion:
+            return
+        if self._is_sii_deduction_choice_allowed(
+            self.sii_ejercicio_deduccion, self.sii_periodo_deduccion
+        ):
+            return
+        bounds = self._prepare_sii_deduction_period_bounds() or {}
+        if str(self.sii_ejercicio_deduccion or "") not in (bounds.get("years") or []):
+            self.sii_ejercicio_deduccion = False
+        self.sii_periodo_deduccion = False
+
+    @api.constrains(
+        "move_type",
+        "invoice_date",
+        "sii_deducir_en_periodo_posterior",
+        "sii_ejercicio_deduccion",
+        "sii_periodo_deduccion",
+    )
+    def _check_sii_deduction_period(self):
+        for move in self.filtered(
+            lambda record: record.move_type in ("in_invoice", "in_refund")
+        ):
+            has_year = bool(move.sii_ejercicio_deduccion)
+            has_period = bool(move.sii_periodo_deduccion)
+            if has_year != has_period:
+                raise ValidationError(
+                    self.env._(
+                        "The SII deduction year and period must be filled together."
+                    )
+                )
+            if not has_year:
+                if move.sii_deducir_en_periodo_posterior:
+                    raise ValidationError(
+                        self.env._(
+                            "A later deduction requires the deduction year "
+                            "and period."
+                        )
+                    )
+                continue
+            if not move.sii_deducir_en_periodo_posterior:
+                raise ValidationError(
+                    self.env._(
+                        "The later deduction checkbox must be checked when "
+                        "a deduction year and period are set."
+                    )
+                )
+            if (
+                move.company_id.sii_period == "monthly"
+                and not move.sii_periodo_deduccion.isdigit()
+            ) or (
+                move.company_id.sii_period == "quarterly"
+                and not move.sii_periodo_deduccion.endswith("T")
+            ):
+                raise ValidationError(
+                    self.env._(
+                        "The SII deduction period must use the company's "
+                        "monthly or quarterly periodicity."
+                    )
+                )
+            liquidation_year, liquidation_period = (
+                move._get_sii_incoming_liquidation_period()
+            )
+            if move._sii_period_key(
+                int(move.sii_ejercicio_deduccion),
+                move.sii_periodo_deduccion,
+            ) <= move._sii_period_key(liquidation_year, liquidation_period):
+                raise ValidationError(
+                    self.env._(
+                        "The SII deduction period must be later than the "
+                        "liquidation period."
+                    )
+                )
+            limit_year = move._get_sii_deduction_year_limit()
+            if limit_year is None or int(move.sii_ejercicio_deduccion) > limit_year:
+                raise ValidationError(
+                    self.env._(
+                        "The SII deduction period exceeds the four-year term "
+                        "counted from the invoice date."
+                    )
+                )
+
+    @staticmethod
+    def _sii_period_key(year, period):
+        if period == "0A":
+            month = 12
+        elif period.endswith("T"):
+            month = int(period[0]) * 3
+        else:
+            month = int(period)
+        return int(year), month
+
+    def _get_sii_company_period_codes(self):
+        self.ensure_one()
+        if self.company_id.sii_period == "quarterly":
+            selection = SII_QUARTERLY_PERIOD_SELECTION
+        else:
+            selection = SII_MONTHLY_PERIOD_SELECTION
+        return [key for key, __ in selection]
+
+    def _get_sii_deduction_year_limit(self):
+        """Last EjercicioDeduccion allowed by the four-year accrual term.
+
+        ATC FAQ 4.1 counts that term from the accrual. The sent accrual is
+        the invoice date (FechaExpedicionFacturaEmisor).
+        """
+        self.ensure_one()
+        accrual = fields.Date.to_date(self.invoice_date)
+        if not accrual:
+            return None
+        return accrual.year + 4
+
+    def _prepare_sii_deduction_period_bounds(self):
+        """Years and periods the form may offer for a later deduction.
+
+        Same-year periods are only those strictly after the liquidation
+        period. A closed year, such as December or 4T, starts at the
+        next year. The last year is four years after the invoice date.
+        """
+        self.ensure_one()
+        if self.move_type not in ("in_invoice", "in_refund"):
+            return False
+        liquidation_year, liquidation_period = (
+            self._get_sii_incoming_liquidation_period()
+        )
+        liquidation_year = int(liquidation_year)
+        company_periods = self._get_sii_company_period_codes()
+        same_year_periods = [
+            period
+            for period in company_periods
+            if self._sii_period_key(liquidation_year, period)
+            > self._sii_period_key(liquidation_year, liquidation_period)
+        ]
+        limit_year = self._get_sii_deduction_year_limit()
+        first_year = liquidation_year if same_year_periods else liquidation_year + 1
+        if limit_year is None or limit_year < first_year:
+            years = []
+        else:
+            years = [str(year) for year in range(first_year, limit_year + 1)]
+        return {
+            "liquidation_year": str(liquidation_year),
+            "years": years,
+            "periods_same_year": same_year_periods,
+            "periods_other_year": company_periods,
+        }
+
+    def _is_sii_deduction_choice_allowed(self, year, period):
+        self.ensure_one()
+        bounds = self._prepare_sii_deduction_period_bounds()
+        if not bounds or not year or not period:
+            return False
+        if str(year) not in bounds["years"]:
+            return False
+        if str(year) == bounds["liquidation_year"]:
+            return period in bounds["periods_same_year"]
+        return period in bounds["periods_other_year"]
+
+    def _get_sii_period_from_date(self, date):
+        self.ensure_one()
+        month = fields.Date.to_date(date).month
+        if self.company_id.sii_period == "monthly":
+            return "%02d" % month
+        return str(int(((month - 1) / 3) + 1)) + "T"
+
+    def _get_sii_sent_period(self):
+        self.ensure_one()
+        if not self.aeat_content_sent:
+            return None
+        try:
+            payload = json.loads(self.aeat_content_sent)
+        except (TypeError, ValueError):
+            return None
+        return payload.get("PeriodoLiquidacion")
+
+    def _get_sii_incoming_liquidation_period(self, cancel=False):
+        self.ensure_one()
+        if cancel or self.aeat_state in {
+            "sent",
+            "sent_w_errors",
+            "sent_modified",
+            "cancelled",
+            "cancelled_modified",
+        }:
+            sent_period = self._get_sii_sent_period()
+            if sent_period:
+                return sent_period["Ejercicio"], sent_period["Periodo"]
+        registration_date = fields.Date.to_date(self._get_account_registration_date())
+        return registration_date.year, self._get_sii_period_from_date(registration_date)
+
+    def _get_sii_deduction_period_values(self):
+        """Later-deduction nodes follow the form, also on an A1.
+
+        Empty year and period mean the invoice is not deferred. The
+        previous ``aeat_content_sent`` is not copied back: an A1 replaces
+        ``FacturaRecibida``, and omitting the nodes removes the deferral.
+        ``PeriodoLiquidacion`` stays the one already sent.
+        """
+        self.ensure_one()
+        if not self.sii_ejercicio_deduccion or not self.sii_periodo_deduccion:
+            return {}
+        return {
+            "ADeducirEnPeriodoPosterior": (
+                "S" if self.sii_deducir_en_periodo_posterior else "N"
+            ),
+            "EjercicioDeduccion": self.sii_ejercicio_deduccion,
+            "PeriodoDeduccion": self.sii_periodo_deduccion,
+        }
 
     @api.depends("move_type")
     def _compute_sii_refund_type(self):
         for record in self:
-            if "refund" in (record.move_type or ""):
-                record.sii_refund_type = "I"
-            else:
+            if "refund" not in (record.move_type or ""):
                 record.sii_refund_type = False
+            elif not record.sii_refund_type:
+                record.sii_refund_type = "I"
 
     @api.depends("move_type")
     def _compute_sii_registration_key_domain(self):
@@ -150,7 +463,13 @@ class AccountMove(models.Model):
     def write(self, vals):
         """For supplier invoices the SII primary key is the supplier
         VAT/ID Otro and the supplier invoice number. Cannot let change these
-        values in a SII registered supplier invoice"""
+        values in a SII registered supplier invoice.
+
+        Deduction dates are not part of that key. Changing them on an
+        already registered purchase queues a modification (A1). The
+        original liquidation period stays. A tax period already closed
+        by the company's tax lock date cannot be changed.
+        """
         for invoice in self.filtered(
             lambda x: x.is_invoice() and x.aeat_state != "not_sent"
         ):
@@ -169,7 +488,85 @@ class AccountMove(models.Model):
             elif invoice.move_type in ["out_invoice", "out_refund"]:
                 if "name" in vals:
                     self._raise_exception_sii(self.env._("invoice number"))
-        return super().write(vals)
+        deduction_fields = (
+            "sii_deducir_en_periodo_posterior",
+            "sii_ejercicio_deduccion",
+            "sii_periodo_deduccion",
+        )
+        track_deduction = bool(set(deduction_fields) & set(vals)) and (
+            "aeat_state" not in vals
+        )
+        if track_deduction:
+            previous_deduction = {
+                invoice.id: tuple(invoice[field] for field in deduction_fields)
+                for invoice in self
+            }
+            for invoice in self:
+                new_deduction = tuple(
+                    vals[field] if field in vals else invoice[field]
+                    for field in deduction_fields
+                )
+                if new_deduction == previous_deduction[invoice.id]:
+                    continue
+                if invoice.move_type not in ("in_invoice", "in_refund"):
+                    continue
+                if (
+                    invoice.aeat_state in ("not_sent", False)
+                    and invoice.state != "posted"
+                ):
+                    continue
+                invoice._check_sii_deduction_tax_lock()
+        res = super().write(vals)
+        if track_deduction:
+            changed = self.filtered(
+                lambda invoice: invoice.move_type in ("in_invoice", "in_refund")
+                and invoice.aeat_state in ("sent", "sent_w_errors")
+                and previous_deduction[invoice.id]
+                != tuple(invoice[field] for field in deduction_fields)
+            )
+            if changed:
+                super(AccountMove, changed).write({"aeat_state": "sent_modified"})
+        return res
+
+    def _get_sii_deduction_tax_date(self):
+        """Date of the period already declared for this purchase.
+
+        The SII registration date is the liquidation month. Until the
+        invoice is registered, the accounting date is the one a filed
+        return would have used.
+        """
+        self.ensure_one()
+        return fields.Date.to_date(self.sii_account_registration_date or self.date)
+
+    def _check_sii_deduction_tax_lock(self):
+        """Refuse a deduction change inside a closed tax period.
+
+        ``tax_lock_date`` is set when the tax return is posted. A user
+        lock exception, the same one Odoo uses for the tax lock, is the
+        only way through.
+        """
+        self.ensure_one()
+        tax_date = self._get_sii_deduction_tax_date()
+        violations = self.company_id._get_lock_date_violations(
+            tax_date,
+            fiscalyear=False,
+            sale=False,
+            purchase=False,
+            tax=True,
+            hard=True,
+        )
+        if not violations:
+            return
+        raise UserError(
+            self.env._(
+                "The deduction period cannot be changed. The registration "
+                "date %(date)s belongs to a tax period that is already "
+                "closed (%(locks)s). Changing it would remove the quota "
+                "from the return already filed and deduct it again later.",
+                date=format_date(self.env, tax_date) if tax_date else "",
+                locks=self.env["res.company"]._format_lock_dates(violations),
+            )
+        )
 
     def _filter_sii_unlink_not_possible(self):
         """Filter records that we can delete to apply only to invoices."""
@@ -306,7 +703,114 @@ class AccountMove(models.Model):
         if not self.ref and self.move_type in ["in_invoice", "in_refund"]:
             error_msg = self.env._("The supplier number invoice is required")
             raise UserError(error_msg)
+        if self.sii_refund_type == "S" and self.move_type in (
+            "in_refund",
+            "out_refund",
+        ):
+            self._check_sii_substitution_refund()
         return res
+
+    def _get_sii_rectified_serial_number(self, origin):
+        """Supplier serial is the vendor reference. Customer serial is the name."""
+        self.ensure_one()
+        if self.move_type in ("in_invoice", "in_refund"):
+            return (origin.ref or "")[:60]
+        return origin._get_document_serial_number()
+
+    def _get_sii_rectification_amounts(self, origin):
+        self.ensure_one()
+        base = abs(origin.amount_untaxed_signed)
+        if self.move_type == "in_refund":
+            quota = origin._get_sii_in_taxes()[1]
+        else:
+            quota = abs(origin.amount_total_signed - origin.amount_untaxed_signed)
+        return base, quota
+
+    def _check_sii_substitution_refund(self):
+        """Substitution with a non-zero rectified amount identifies the origin."""
+        self.ensure_one()
+        origin = self.reversed_entry_id
+        if not origin:
+            raise UserError(
+                self.env._("A substitution refund needs the original invoice.")
+            )
+        base, quota = self._get_sii_rectification_amounts(origin)
+        if not base and not quota:
+            return
+        number = self._get_sii_rectified_serial_number(origin)
+        if not number or not origin.invoice_date:
+            raise UserError(
+                self.env._(
+                    "A substitution refund with a rectified base or quota "
+                    "needs the original invoice number and date."
+                )
+            )
+
+    def _get_sii_refund_values(self):
+        """TipoRectificativa and, for a substitution, the replaced amounts.
+
+        FacturasRectificadas is optional on a received invoice. It is sent
+        when the substitution reports a non-zero rectified base or quota.
+        """
+        self.ensure_one()
+        values = {}
+        if self.move_type not in ("in_refund", "out_refund"):
+            return values
+        if not self.sii_refund_type:
+            return values
+        values["TipoRectificativa"] = self.sii_refund_type
+        if self.sii_refund_type != "S":
+            return values
+        origin = self.reversed_entry_id
+        if not origin:
+            return values
+        base, quota = self._get_sii_rectification_amounts(origin)
+        values["ImporteRectificacion"] = {
+            "BaseRectificada": base,
+            "CuotaRectificada": quota,
+        }
+        number = self._get_sii_rectified_serial_number(origin)
+        if (base or quota) and number and origin.invoice_date:
+            values["FacturasRectificadas"] = {
+                "IDFacturaRectificada": [
+                    {
+                        "NumSerieFacturaEmisor": number,
+                        "FechaExpedicionFacturaEmisor": self._change_date_format(
+                            origin.invoice_date
+                        ),
+                    }
+                ]
+            }
+        return values
+
+    def _apply_open_later_deduction(self, origin):
+        """Defer the refund to the origin period when that period is still open.
+
+        The refund liquidation stays its own registration period. The net
+        of both documents is then deducted in the origin's later period.
+        A period that is no longer later than this refund is left empty:
+        the adjustment is registered in the reception period.
+        """
+        self.ensure_one()
+        if self.move_type != "in_refund" or not origin:
+            return
+        if (
+            not origin.sii_deducir_en_periodo_posterior
+            or not origin.sii_ejercicio_deduccion
+            or not origin.sii_periodo_deduccion
+        ):
+            return
+        if not self._is_sii_deduction_choice_allowed(
+            origin.sii_ejercicio_deduccion, origin.sii_periodo_deduccion
+        ):
+            return
+        self.write(
+            {
+                "sii_deducir_en_periodo_posterior": True,
+                "sii_ejercicio_deduccion": origin.sii_ejercicio_deduccion,
+                "sii_periodo_deduccion": origin.sii_periodo_deduccion,
+            }
+        )
 
     def _get_sii_invoice_type(self):
         self.ensure_one()
@@ -315,7 +819,7 @@ class AccountMove(models.Model):
             return "LC"
         if self.move_type in ["in_invoice", "in_refund"]:
             if self.move_type == "in_refund":
-                invoice_type = "R4"
+                invoice_type = self.sii_refund_specific_invoice_type or "R4"
             elif self.sii_is_accounting_receipt:
                 invoice_type = "F6"
             else:
@@ -362,15 +866,7 @@ class AccountMove(models.Model):
             }
         exp_dict = inv_dict["FacturaExpedida"]
         if self.move_type == "out_refund":
-            exp_dict["TipoRectificativa"] = self.sii_refund_type
-            if self.sii_refund_type == "S":
-                origin = self.refund_invoice_id
-                exp_dict["ImporteRectificacion"] = {
-                    "BaseRectificada": abs(origin.amount_untaxed_signed),
-                    "CuotaRectificada": abs(
-                        origin.amount_total_signed - origin.amount_untaxed_signed
-                    ),
-                }
+            exp_dict.update(self._get_sii_refund_values())
         return inv_dict
 
     def _get_document_date(self):
@@ -396,8 +892,7 @@ class AccountMove(models.Model):
         self.ensure_one()
         invoice_date = self._change_date_format(self.invoice_date)
         reg_date = self._change_date_format(self._get_account_registration_date())
-        ejercicio = fields.Date.to_date(self.date).year
-        periodo = self._get_document_period()
+        ejercicio, periodo = self._get_sii_incoming_liquidation_period(cancel=cancel)
         partner = self._aeat_get_partner()
         desglose_factura, tax_amount, not_in_amount_total = self._get_sii_in_taxes()
         inv_dict = {
@@ -424,7 +919,6 @@ class AccountMove(models.Model):
                     invoice_type = "F5"
 
             inv_dict["FacturaRecibida"] = {
-                # TODO: Incluir los 5 tipos de facturas rectificativas
                 "TipoFactura": invoice_type,
                 "ClaveRegimenEspecialOTrascendencia": self.sii_registration_key.code,
                 "DescripcionOperacion": self.sii_description,
@@ -433,6 +927,9 @@ class AccountMove(models.Model):
                 "FechaRegContable": reg_date,
                 "CuotaDeducible": tax_amount,
             }
+            deduction_period_values = self._get_sii_deduction_period_values()
+            if deduction_period_values:
+                inv_dict["FacturaRecibida"].update(deduction_period_values)
             if not self.sii_dua_invoice:
                 inv_dict["FacturaRecibida"]["ImporteTotal"] = (
                     -self.amount_total_signed - not_in_amount_total
@@ -458,16 +955,7 @@ class AccountMove(models.Model):
             # Uso condicional de IDOtro/NIF
             inv_dict["FacturaRecibida"]["Contraparte"].update(ident)
             if self.move_type == "in_refund":
-                rec_dict = inv_dict["FacturaRecibida"]
-                rec_dict["TipoRectificativa"] = self.sii_refund_type
-                if self.sii_refund_type == "S":
-                    refund_tax_amount = self.refund_invoice_id._get_sii_in_taxes()[1]
-                    rec_dict["ImporteRectificacion"] = {
-                        "BaseRectificada": abs(
-                            self.refund_invoice_id.amount_untaxed_signed
-                        ),
-                        "CuotaRectificada": refund_tax_amount,
-                    }
+                inv_dict["FacturaRecibida"].update(self._get_sii_refund_values())
 
             if self.sii_dua_invoice:
                 inv_dict["FacturaRecibida"].pop("FechaOperacion", None)
@@ -726,6 +1214,9 @@ class AccountMove(models.Model):
                 )
                 if sii_refund_type:
                     extra_dict["sii_refund_type"] = sii_refund_type
+                specific_type = self.env.context.get("sii_refund_specific_invoice_type")
+                if specific_type:
+                    extra_dict["sii_refund_specific_invoice_type"] = specific_type
                 if supplier_invoice_number_refund:
                     extra_dict["ref"] = supplier_invoice_number_refund
                 if extra_dict:
@@ -734,6 +1225,8 @@ class AccountMove(models.Model):
             default_values_list=default_values_list,
             cancel=cancel,
         )
+        for refund, origin in zip(res, self, strict=False):
+            refund._apply_open_later_deduction(origin)
         return res
 
     def cancel_one_invoice(self, with_commit=False):

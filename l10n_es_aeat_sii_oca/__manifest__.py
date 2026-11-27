@@ -63,5 +63,10 @@
         "views/account_journal_view.xml",
     ],
     "images": ["static/description/SII_1.jpg"],
+    "assets": {
+        "web.assets_backend": [
+            "l10n_es_aeat_sii_oca/static/src/views/fields/sii_deduction_selection_field.esm.js",
+        ],
+    },
     "post_init_hook": "add_key_to_existing_invoices",
 }

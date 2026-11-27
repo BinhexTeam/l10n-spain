@@ -27,6 +27,12 @@ class AccountMoveReversal(models.TransientModel):
     supplier_invoice_number_refund = fields.Char(
         string="Supplier Invoice Number",
     )
+    sii_refund_specific_invoice_type = fields.Selection(
+        selection=lambda self: self.env["account.move"]
+        ._fields["sii_refund_specific_invoice_type"]
+        .selection,
+        string="SII Refund Invoice Type",
+    )
 
     def default_get(self, fields_list):
         """
@@ -61,5 +67,6 @@ class AccountMoveReversal(models.TransientModel):
         obj = self.with_context(
             sii_refund_type=self.sii_refund_type,
             supplier_invoice_number=self.supplier_invoice_number_refund,
+            sii_refund_specific_invoice_type=self.sii_refund_specific_invoice_type,
         )
         return super(AccountMoveReversal, obj).reverse_moves(is_modify)

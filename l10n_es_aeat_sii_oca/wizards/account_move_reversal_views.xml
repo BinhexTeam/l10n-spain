@@ -15,6 +15,10 @@
                     invisible="not sii_refund_type_required"
                 />
                 <field
+                    name="sii_refund_specific_invoice_type"
+                    invisible="not sii_refund_type_required"
+                />
+                <field
                     name="supplier_invoice_number_refund"
                     required="supplier_invoice_number_refund_required"
                     invisible="not supplier_invoice_number_refund_required"

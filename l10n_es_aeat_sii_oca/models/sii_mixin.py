@@ -63,8 +63,8 @@ class SiiMixin(models.AbstractModel):
     sii_return = fields.Text(string="SII Return", copy=False, readonly=True)
     sii_refund_type = fields.Selection(
         selection=[
-            # ('S', 'By substitution'), - Removed as not fully supported
             ("I", "By differences"),
+            ("S", "By substitution"),
         ],
         string="SII Refund Type",
         compute="_compute_sii_refund_type",
@@ -1152,9 +1152,12 @@ class SiiMixin(models.AbstractModel):
             fault_vals = self._get_sii_fault_vals(fault)
             return {document: fault_vals for _key, document, _dict in items}, False
         docs_by_key = {key: document for key, document, _inv_dict in items}
-        return self._get_sii_response_vals(
-            serialize_object(res, dict), docs_by_key, cancel
-        ), False
+        return (
+            self._get_sii_response_vals(
+                serialize_object(res, dict), docs_by_key, cancel
+            ),
+            False,
+        )
 
     @api.model
     def _get_sii_response_vals(self, res, docs_by_key, cancel=False):

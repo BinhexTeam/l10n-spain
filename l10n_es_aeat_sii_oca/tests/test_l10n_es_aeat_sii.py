@@ -689,6 +689,289 @@ class TestL10nEsAeatSii(TestL10nEsAeatSiiBase):
         with self.assertRaises(exceptions.UserError):
             in_invoice.write({"ref": "REF2"})
 
+    def test_purchase_later_deduction_period(self):
+        invoice = self._create_invoice("in_invoice")
+        invoice.sii_account_registration_date = "2020-11-17"
+        bounds = invoice.sii_deduction_period_bounds
+        self.assertEqual(bounds["years"], ["2020", "2021", "2022", "2023", "2024"])
+        self.assertEqual(bounds["periods_same_year"], ["12"])
+        with self.assertRaises(exceptions.ValidationError):
+            invoice.write({"sii_deducir_en_periodo_posterior": True})
+        with self.assertRaises(exceptions.ValidationError):
+            invoice.write(
+                {
+                    "sii_ejercicio_deduccion": "2020",
+                    "sii_periodo_deduccion": "12",
+                }
+            )
+        with self.assertRaises(exceptions.ValidationError):
+            invoice.write(
+                {
+                    "sii_deducir_en_periodo_posterior": True,
+                    "sii_ejercicio_deduccion": "2020",
+                    "sii_periodo_deduccion": "11",
+                }
+            )
+        invoice.write(
+            {
+                "sii_deducir_en_periodo_posterior": True,
+                "sii_ejercicio_deduccion": "2020",
+                "sii_periodo_deduccion": "12",
+            }
+        )
+        payload = invoice._get_aeat_invoice_dict()
+        self.assertEqual(
+            payload["PeriodoLiquidacion"],
+            {"Ejercicio": 2020, "Periodo": "11"},
+        )
+        factura = payload["FacturaRecibida"]
+        self.assertEqual(factura["ADeducirEnPeriodoPosterior"], "S")
+        self.assertEqual(factura["EjercicioDeduccion"], "2020")
+        self.assertEqual(factura["PeriodoDeduccion"], "12")
+
+    def test_purchase_deduction_year_window(self):
+        invoice = self._create_invoice("in_invoice")
+        invoice.write(
+            {
+                "invoice_date": "2018-06-01",
+                "sii_account_registration_date": "2020-11-17",
+            }
+        )
+        self.assertEqual(
+            invoice.sii_deduction_period_bounds["years"],
+            ["2020", "2021", "2022"],
+        )
+        invoice.write(
+            {
+                "sii_deducir_en_periodo_posterior": True,
+                "sii_ejercicio_deduccion": "2022",
+                "sii_periodo_deduccion": "01",
+            }
+        )
+        with self.assertRaises(exceptions.ValidationError):
+            invoice.write(
+                {
+                    "sii_ejercicio_deduccion": "2023",
+                    "sii_periodo_deduccion": "01",
+                }
+            )
+        closed = self._create_invoice("in_invoice")
+        closed.sii_account_registration_date = "2020-12-17"
+        self.assertEqual(
+            closed.sii_deduction_period_bounds["years"],
+            ["2021", "2022", "2023", "2024"],
+        )
+        company = closed.company_id
+        previous_period = company.sii_period
+        company.sii_period = "quarterly"
+        try:
+            closed.sii_account_registration_date = "2020-08-15"
+            self.assertEqual(
+                closed.sii_deduction_period_bounds["periods_same_year"],
+                ["4T"],
+            )
+            closed.sii_account_registration_date = "2020-11-17"
+            bounds = closed.sii_deduction_period_bounds
+            self.assertEqual(bounds["periods_same_year"], [])
+            self.assertEqual(bounds["years"][0], "2021")
+        finally:
+            company.sii_period = previous_period
+
+    def test_purchase_sent_period_keeps_liquidation_and_drops_deduction(self):
+        invoice = self._create_invoice("in_invoice")
+        invoice.write(
+            {
+                "sii_account_registration_date": "2020-11-17",
+                "sii_deducir_en_periodo_posterior": True,
+                "sii_ejercicio_deduccion": "2020",
+                "sii_periodo_deduccion": "12",
+            }
+        )
+        invoice.write(
+            {
+                "aeat_state": "sent",
+                "aeat_content_sent": json.dumps(
+                    {"PeriodoLiquidacion": {"Ejercicio": 2020, "Periodo": "10"}}
+                ),
+            }
+        )
+        self.assertEqual(invoice._get_sii_send_group_key(cancel=False)[3], "A1")
+        payload = invoice._get_aeat_invoice_dict()
+        self.assertEqual(
+            payload["PeriodoLiquidacion"],
+            {"Ejercicio": 2020, "Periodo": "10"},
+        )
+        self.assertEqual(
+            payload["FacturaRecibida"]["PeriodoDeduccion"],
+            "12",
+        )
+        invoice.write(
+            {
+                "sii_ejercicio_deduccion": "2021",
+                "sii_periodo_deduccion": "01",
+            }
+        )
+        self.assertEqual(invoice.aeat_state, "sent_modified")
+        self.assertEqual(invoice._get_sii_send_group_key(cancel=False)[3], "A1")
+        payload = invoice._get_aeat_invoice_dict()
+        self.assertEqual(
+            payload["PeriodoLiquidacion"],
+            {"Ejercicio": 2020, "Periodo": "10"},
+        )
+        self.assertEqual(payload["FacturaRecibida"]["ADeducirEnPeriodoPosterior"], "S")
+        self.assertEqual(payload["FacturaRecibida"]["EjercicioDeduccion"], "2021")
+        self.assertEqual(payload["FacturaRecibida"]["PeriodoDeduccion"], "01")
+        self.assertFalse(invoice.reversal_move_ids)
+        invoice.write(
+            {
+                "sii_deducir_en_periodo_posterior": False,
+                "sii_ejercicio_deduccion": False,
+                "sii_periodo_deduccion": False,
+            }
+        )
+        payload = invoice._get_aeat_invoice_dict()
+        factura = payload["FacturaRecibida"]
+        self.assertEqual(invoice.aeat_state, "sent_modified")
+        self.assertEqual(invoice._get_sii_send_group_key(cancel=False)[3], "A1")
+        self.assertEqual(
+            payload["PeriodoLiquidacion"],
+            {"Ejercicio": 2020, "Periodo": "10"},
+        )
+        self.assertNotIn("ADeducirEnPeriodoPosterior", factura)
+        self.assertNotIn("EjercicioDeduccion", factura)
+        self.assertNotIn("PeriodoDeduccion", factura)
+
+    def test_purchase_deduction_blocked_in_closed_tax_period(self):
+        invoice = self._create_invoice("in_invoice")
+        invoice.write(
+            {
+                "sii_account_registration_date": "2020-11-17",
+                "aeat_state": "sent",
+                "aeat_content_sent": json.dumps(
+                    {"PeriodoLiquidacion": {"Ejercicio": 2020, "Periodo": "11"}}
+                ),
+            }
+        )
+        company = invoice.company_id
+        previous_lock = company.tax_lock_date
+        deduction = {
+            "sii_deducir_en_periodo_posterior": True,
+            "sii_ejercicio_deduccion": "2020",
+            "sii_periodo_deduccion": "12",
+        }
+        company.tax_lock_date = "2020-11-30"
+        try:
+            with self.assertRaises(exceptions.UserError):
+                invoice.write(deduction)
+            self.assertFalse(invoice.sii_deducir_en_periodo_posterior)
+            self.assertEqual(invoice.aeat_state, "sent")
+        finally:
+            company.tax_lock_date = previous_lock
+        invoice.write(deduction)
+        self.assertEqual(invoice.aeat_state, "sent_modified")
+        self.assertEqual(
+            invoice._get_aeat_invoice_dict()["PeriodoLiquidacion"],
+            {"Ejercicio": 2020, "Periodo": "11"},
+        )
+
+    def test_purchase_refund_of_open_later_deduction(self):
+        origin = self._create_invoice("in_invoice")
+        origin.write(
+            {
+                "ref": "ORIG-DED",
+                "invoice_date": "2026-11-10",
+                "sii_account_registration_date": "2026-11-17",
+                "sii_deducir_en_periodo_posterior": True,
+                "sii_ejercicio_deduccion": "2026",
+                "sii_periodo_deduccion": "12",
+            }
+        )
+        origin.action_post()
+        refund = self._create_invoice("in_refund")
+        refund.write(
+            {
+                "ref": "RECT-DED",
+                "invoice_date": "2026-11-20",
+                "sii_account_registration_date": "2026-11-20",
+                "reversed_entry_id": origin.id,
+            }
+        )
+        self.assertEqual(refund.sii_refund_type, "I")
+        reversed_refund = origin._reverse_moves(
+            [
+                {
+                    "ref": "RECT-AUTO",
+                    "invoice_date": "2026-11-20",
+                    "date": "2026-11-20",
+                    "sii_account_registration_date": "2026-11-20",
+                }
+            ]
+        )
+        self.assertEqual(reversed_refund.sii_refund_type, "I")
+        self.assertEqual(reversed_refund.sii_ejercicio_deduccion, "2026")
+        self.assertEqual(reversed_refund.sii_periodo_deduccion, "12")
+        self.assertFalse(reversed_refund.reversal_move_ids)
+        refund._apply_open_later_deduction(origin)
+        payload = refund._get_aeat_invoice_dict()
+        self.assertEqual(
+            payload["PeriodoLiquidacion"],
+            {"Ejercicio": 2026, "Periodo": "11"},
+        )
+        factura = payload["FacturaRecibida"]
+        self.assertEqual(factura["TipoFactura"], "R4")
+        self.assertEqual(factura["TipoRectificativa"], "I")
+        self.assertNotIn("FacturasRectificadas", factura)
+        self.assertEqual(factura["EjercicioDeduccion"], "2026")
+        self.assertEqual(factura["PeriodoDeduccion"], "12")
+        closed = self._create_invoice("in_refund")
+        closed.write(
+            {
+                "ref": "RECT-NOW",
+                "invoice_date": "2026-12-20",
+                "sii_account_registration_date": "2026-12-20",
+                "reversed_entry_id": origin.id,
+            }
+        )
+        closed._apply_open_later_deduction(origin)
+        self.assertFalse(closed.sii_ejercicio_deduccion)
+        closed.write(
+            {
+                "sii_deducir_en_periodo_posterior": True,
+                "sii_ejercicio_deduccion": "2027",
+                "sii_periodo_deduccion": "01",
+            }
+        )
+        closed_payload = closed._get_aeat_invoice_dict()
+        self.assertEqual(closed_payload["PeriodoLiquidacion"]["Periodo"], "12")
+        self.assertEqual(closed_payload["FacturaRecibida"]["PeriodoDeduccion"], "01")
+        lonely = self._create_invoice("in_refund")
+        lonely.write({"ref": "SOLO", "sii_refund_type": "S"})
+        with self.assertRaises(exceptions.UserError):
+            lonely._check_sii_substitution_refund()
+        refund.write(
+            {
+                "sii_refund_type": "S",
+                "sii_refund_specific_invoice_type": "R1",
+            }
+        )
+        payload = refund._get_aeat_invoice_dict()
+        factura = payload["FacturaRecibida"]
+        self.assertEqual(factura["TipoFactura"], "R1")
+        self.assertEqual(factura["TipoRectificativa"], "S")
+        self.assertEqual(
+            factura["FacturasRectificadas"]["IDFacturaRectificada"][0],
+            {
+                "NumSerieFacturaEmisor": "ORIG-DED",
+                "FechaExpedicionFacturaEmisor": "10-11-2026",
+            },
+        )
+        self.assertEqual(factura["ImporteRectificacion"]["BaseRectificada"], 100.0)
+        self.assertEqual(
+            payload["PeriodoLiquidacion"],
+            {"Ejercicio": 2026, "Periodo": "11"},
+        )
+        self.assertEqual(factura["PeriodoDeduccion"], "12")
+
     def test_account_move_reversal_out_invoice(self):
         reversal = (
             self.env["account.move.reversal"]
