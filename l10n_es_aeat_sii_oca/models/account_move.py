@@ -488,45 +488,55 @@ class AccountMove(models.Model):
             elif invoice.move_type in ["out_invoice", "out_refund"]:
                 if "name" in vals:
                     self._raise_exception_sii(self.env._("invoice number"))
-        deduction_fields = (
+        previous_deduction = self._sii_deduction_before_write(vals)
+        res = super().write(vals)
+        self._sii_deduction_after_write(previous_deduction)
+        return res
+
+    def _sii_deduction_fields(self):
+        return (
             "sii_deducir_en_periodo_posterior",
             "sii_ejercicio_deduccion",
             "sii_periodo_deduccion",
         )
-        track_deduction = bool(set(deduction_fields) & set(vals)) and (
-            "aeat_state" not in vals
+
+    def _sii_deduction_values(self, vals=None):
+        fields_to_read = self._sii_deduction_fields()
+        return tuple(
+            (vals[field] if vals and field in vals else self[field])
+            for field in fields_to_read
         )
-        if track_deduction:
-            previous_deduction = {
-                invoice.id: tuple(invoice[field] for field in deduction_fields)
-                for invoice in self
-            }
-            for invoice in self:
-                new_deduction = tuple(
-                    vals[field] if field in vals else invoice[field]
-                    for field in deduction_fields
-                )
-                if new_deduction == previous_deduction[invoice.id]:
-                    continue
-                if invoice.move_type not in ("in_invoice", "in_refund"):
-                    continue
-                if (
-                    invoice.aeat_state in ("not_sent", False)
-                    and invoice.state != "posted"
-                ):
-                    continue
-                invoice._check_sii_deduction_tax_lock()
-        res = super().write(vals)
-        if track_deduction:
-            changed = self.filtered(
-                lambda invoice: invoice.move_type in ("in_invoice", "in_refund")
-                and invoice.aeat_state in ("sent", "sent_w_errors")
-                and previous_deduction[invoice.id]
-                != tuple(invoice[field] for field in deduction_fields)
-            )
-            if changed:
-                super(AccountMove, changed).write({"aeat_state": "sent_modified"})
-        return res
+
+    def _sii_deduction_before_write(self, vals):
+        """Remember the deduction and refuse a change inside a closed period.
+
+        An empty dict means this write does not track the deduction.
+        """
+        deduction_fields = self._sii_deduction_fields()
+        if not (set(deduction_fields) & set(vals)) or "aeat_state" in vals:
+            return {}
+        previous = {invoice.id: invoice._sii_deduction_values() for invoice in self}
+        for invoice in self:
+            if invoice._sii_deduction_values(vals) == previous[invoice.id]:
+                continue
+            if invoice.move_type not in ("in_invoice", "in_refund"):
+                continue
+            if invoice.aeat_state in ("not_sent", False) and invoice.state != "posted":
+                continue
+            invoice._check_sii_deduction_tax_lock()
+        return previous
+
+    def _sii_deduction_after_write(self, previous_deduction):
+        """Queue a SII modification when a sent purchase changes deduction."""
+        if not previous_deduction:
+            return
+        changed = self.filtered(
+            lambda invoice: invoice.move_type in ("in_invoice", "in_refund")
+            and invoice.aeat_state in ("sent", "sent_w_errors")
+            and previous_deduction[invoice.id] != invoice._sii_deduction_values()
+        )
+        if changed:
+            super(AccountMove, changed).write({"aeat_state": "sent_modified"})
 
     def _get_sii_deduction_tax_date(self):
         """Date of the period already declared for this purchase.
